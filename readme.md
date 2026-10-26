@@ -72,6 +72,10 @@ El ícono de basurero pide confirmación. **Cancelar** cierra el diálogo. **Eli
 
 - Expo SDK 58 y React Native
 - TypeScript
-- React Navigation (pila: lista y formulario)
+- React Navigation
 - React Native Paper, tema claro de Material Design 3
 - Estado con `useState` y `useContext`
+
+## ¿Por qué React Native con Expo?
+
+Elegí React Native con Expo porque ya lo había usado para desarrollar un Sudoku y la experiencia me dejó con ganas de seguir aprendiéndolo. Me gustó poder crear una aplicación y probarla al instante en el celular, a diferencia de Java, donde hay que esperar la compilación, mover e instalar el APK, y repetir todo el proceso cada vez que algo falla o quiero hacer un cambio. En simples palabras, lo seleccioné para seguir aprendiendo este stack.
