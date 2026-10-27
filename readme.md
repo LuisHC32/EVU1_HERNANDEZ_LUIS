@@ -84,10 +84,10 @@ export function useTasks(): TasksContextValue {
 - **Proporción:** Barra de 64 dp, FAB de 56 dp, campos de 56 dp, diálogo radio 28, tarjetas radio 12.
 - **Tipografía:** Variantes de `Text` de Paper (`headlineSmall`, `titleLarge`, `bodyLarge`, `labelLarge`, `labelMedium`...).
 - **Colores (`src/theme/theme.ts`):** `primary #4F378A` (FAB, Guardar, check), `surface #FEF7FF` (fondo), `surfaceContainerLowest #FFFFFF` (tarjetas), `onSurface #1D1A22` (textos), `tertiary #910809` (eliminar), `error #BA1A1A` (validación), `inverseSurface #322F37` (aviso).
-- **Áreas táctiles:** Botones de ícono de 48 × 48 dp, botones con `minHeight: 48`, `hitSlop={4}` en "Crear primera tarea", ripple en Android y `accessibilityLabel`.
+- **Áreas táctiles:** `IconButton` de 48 × 48 dp, botones con `minHeight: 48`, `hitSlop={4}` en "Crear primera tarea" y `accessibilityLabel`.
 - **Estado vacío:** Icono `assignment`, "No hay tareas" y botón para crear; con búsqueda sin resultados, `search-off` y "Sin resultados".
 - **Confirmación:** `Dialog` antes de eliminar; "Eliminar" en `tertiary` para marcar la acción peligrosa.
-- **Feedback:** Aviso estilo Snackbar de 4 s ("Tarea guardada", "Tarea eliminada" + **Deshacer**) con el FAB desplazado; validación "El título es obligatorio."; borde `primary` al enfocar; contador "N / 120"; `KeyboardAvoidingView` y `softwareKeyboardLayoutMode: "resize"` (`app.json`).
+- **Feedback:** `Snackbar` de Paper de 4 s ("Tarea guardada", "Tarea eliminada" + **Deshacer**); validación "El título es obligatorio." con `HelperText`; contador "N / 120"; `KeyboardAvoidingView` y `softwareKeyboardLayoutMode: "resize"` (`app.json`).
 
 ## Componentes de UI principales
 
@@ -99,14 +99,19 @@ export function useTasks(): TasksContextValue {
 | `StatusBar` | expo-status-bar | `App.tsx`: barra de estado oscura |
 | `View`, `Text` (variant) | RN / Paper | Todo: diseño y tipografía M3 |
 | `FlatList` | React Native | `TaskListScreen`: lista virtualizada |
-| `Pressable` | React Native | Botones táctiles de 48 dp con ripple |
-| `TextInput` | React Native | Formulario y buscador (estilo *outlined*) |
+| `Appbar.Header`, `Appbar.BackAction`, `Appbar.Content`, `Appbar.Action` | React Native Paper | Barra superior, volver y buscar |
+| `Card` + `Card.Title` + `Card.Content` | React Native Paper | `TaskItem`: tarjeta de cada tarea |
+| `Checkbox` | React Native Paper | `TaskItem`: marcar como realizada |
+| `IconButton` | React Native Paper | `TaskItem`: editar y eliminar (48 × 48 dp) |
+| `TextInput` (outlined) + `HelperText` | React Native Paper | `TaskFormScreen` y buscador: campos, validación y contador |
+| `Button` | React Native Paper | Guardar, Descartar, Volver y botones del diálogo |
 | `ScrollView` + `KeyboardAvoidingView` | React Native | `TaskFormScreen`: adaptarse al teclado |
 | `FAB` | React Native Paper | `TaskListScreen`: crear tarea |
 | `Portal` + `Dialog` | React Native Paper | `TaskListScreen`: confirmar eliminación |
-| `MaterialIcons` / `MaterialCommunityIcons` | @expo/vector-icons | Íconos de Material |
+| `Snackbar` | React Native Paper | Avisos con la acción Deshacer |
+| `Avatar.Icon` | React Native Paper | Íconos de los estados vacíos |
 | `TaskItem` | Propio | Tarjeta de cada tarea |
-| `Header`, `PrimaryButton` | Propios sobre Paper | Disponibles en `src/components` |
+| `Header`, `PrimaryButton` | Propios sobre Paper | Se usan en ambas pantallas (`Appbar` y `Button`) |
 
 # To-Do List
 
@@ -123,55 +128,75 @@ npm install
 npx expo start
 ```
 
-## Pantallas
-
 ### Inicio
 
-Si no hay tareas, la lista muestra el estado vacío y el botón para crear la primera. El botón **+** abre el formulario.
+Si no hay tareas, la lista muestra el estado vacío y el botón **Crear primera tarea**. El botón flotante **+** (`FAB`) abre el formulario.
 
 ![Pantalla de inicio sin tareas](imgs/Inicio.jpeg)
 
 ### Crear tarea
 
-El formulario pide el título (máximo 120 caracteres) y una descripción opcional. Si el título está vacío, no se guarda y se muestra el error.
+El formulario pide el título (máximo 120 caracteres) y una descripción opcional. Los campos son `TextInput` con borde de React Native Paper y un contador de caracteres debajo.
 
-![Formulario de nueva tarea](imgs/Crear%20Tarea.jpeg)
+![Formulario de nueva tarea vacío](imgs/Nueva%20Tarea%20Vacia.png)
 
-Al guardar, vuelve a la lista y aparece el aviso **Tarea guardada**. El contador indica cuántas tareas están activas.
+![Formulario de nueva tarea con datos](imgs/Crear%20Tarea.jpeg)
+
+Si el título está vacío, la tarea no se guarda: el campo se marca en rojo y `HelperText` muestra **El título es obligatorio.**
+
+![Error de título obligatorio](imgs/Crear%20Tarea%20Error.png)
+
+Al guardar, la app vuelve a la lista y el `Snackbar` muestra **Tarea guardada**. El contador indica cuántas tareas están activas.
 
 ![Tarea creada](imgs/CrearTarea%20Exitosamente.jpeg)
 
+### Lista de tareas
+
+Cada tarea es una `Card` con su título, su descripción, una casilla para marcarla como realizada y los botones de editar y eliminar.
+
+![Lista con varias tareas](imgs/Lista%20de%20Tareas.png)
+
 ### Editar tarea
 
-El ícono de lápiz abre la misma pantalla con los datos de la tarea. La cabecera dice **Editar tarea** y el botón **Actualizar tarea**.
+El ícono de lápiz abre la misma pantalla con los datos de la tarea. La cabecera dice **Editar tarea** y el botón dice **Actualizar tarea**.
 
 ![Formulario de edición](imgs/Editar%20Tarea.jpeg)
 
-Al guardar, vuelve a la lista y aparece el aviso **Tarea actualizada correctamente**.
+Al guardar, la app vuelve a la lista y aparece el aviso **Tarea actualizada correctamente**.
 
 ![Tarea actualizada](imgs/Editar%20Tarea%20Exitosamente.jpeg)
 
 ### Marcar como realizada
 
-El círculo de cada tarjeta cambia el estado. La tarea realizada muestra una palomita y deja de contarse como activa. Sigue visible en la lista.
+La casilla de cada tarjeta cambia el estado. La tarea realizada aparece marcada y deja de contarse como activa, pero sigue visible en la lista.
 
 ![Tarea marcada como realizada](imgs/Tarea%20realizada.jpeg)
 
 ### Buscar
 
-La lupa abre el buscador en la cabecera. Filtra por título y descripción, sin distinguir mayúsculas ni acentos. El contador pasa a mostrar los resultados.
+La lupa de la barra superior abre el buscador. Filtra por título y descripción, sin distinguir mayúsculas ni acentos, y el contador pasa a mostrar los resultados.
 
 ![Buscador abierto](imgs/Buscar%20Tarea.jpeg)
 
 ![Lista filtrada](imgs/Buscar%20Tarea%20Filtrado.jpeg)
 
+Si ninguna tarea coincide, la app muestra el estado **Sin resultados**.
+
+![Búsqueda sin resultados](imgs/Buscar%20Tarea%20Sin%20Resultados.png)
+
 ### Eliminar
 
-El ícono de basurero pide confirmación. **Cancelar** cierra el diálogo. **Eliminar** quita la tarea y muestra **Tarea eliminada**, con la opción **Deshacer**.
+El ícono de basurero abre un `Dialog` de confirmación. **Cancelar** cierra el diálogo y **Eliminar** quita la tarea.
 
 ![Confirmación para eliminar](imgs/Eliminar%20Tarea.jpeg)
 
+Después de eliminar, el `Snackbar` muestra **Tarea eliminada** con la opción **Deshacer**.
+
 ![Tarea eliminada](imgs/Eliminar%20Tarea%20Exitosamente.jpeg)
+
+Si tocas **Deshacer**, la tarea vuelve a su lugar en la lista.
+
+![Tarea restaurada con Deshacer](imgs/Deshacer%20Eliminacion.png)
 
 ## Tecnologías
 
