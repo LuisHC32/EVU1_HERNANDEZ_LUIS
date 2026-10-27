@@ -128,6 +128,8 @@ npm install
 npx expo start
 ```
 
+## Pantallas
+
 ### Inicio
 
 Si no hay tareas, la lista muestra el estado vacío y el botón **Crear primera tarea**. El botón flotante **+** (`FAB`) abre el formulario.
