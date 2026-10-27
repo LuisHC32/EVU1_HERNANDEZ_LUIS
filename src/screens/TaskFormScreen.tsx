@@ -1,23 +1,18 @@
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Text } from 'react-native-paper';
+import { Button, HelperText, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Header } from '../components/Header';
+import { PrimaryButton } from '../components/PrimaryButton';
 import { useTasks } from '../context/TasksContext';
 import { palette } from '../theme/theme';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskForm'>;
+
+const TITLE_MAX_LENGTH = 120;
 
 export function TaskFormScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
@@ -29,8 +24,6 @@ export function TaskFormScreen({ navigation, route }: Props) {
   const [titulo, setTitulo] = useState(existing?.titulo ?? '');
   const [descripcion, setDescripcion] = useState(existing?.descripcion ?? '');
   const [tituloError, setTituloError] = useState(false);
-  const [tituloFocused, setTituloFocused] = useState(false);
-  const [descripcionFocused, setDescripcionFocused] = useState(false);
 
   const goBack = () => navigation.goBack();
 
@@ -65,21 +58,8 @@ export function TaskFormScreen({ navigation, route }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <View style={styles.topBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Volver atrás"
-          onPress={goBack}
-          style={styles.iconHit}
-          android_ripple={{ color: palette.surfaceContainerHigh, borderless: true, radius: 24 }}
-        >
-          <MaterialIcons name="arrow-back" size={24} color={palette.onSurface} />
-        </Pressable>
-        <Text variant="titleLarge" style={styles.brand}>
-          {isEditing ? 'Editar tarea' : 'Nueva Tarea'}
-        </Text>
-      </View>
+    <SafeAreaView style={styles.safe} edges={['left', 'right']}>
+      <Header title={isEditing ? 'Editar tarea' : 'Nueva Tarea'} onBack={goBack} />
 
       <KeyboardAvoidingView
         style={styles.body}
@@ -94,90 +74,69 @@ export function TaskFormScreen({ navigation, route }: Props) {
               <Text variant="bodyLarge" style={styles.missingText}>
                 No se encontró la tarea.
               </Text>
-              <Pressable accessibilityRole="button" onPress={goBack} style={styles.discard}>
-                <Text variant="labelLarge" style={styles.discardLabel}>
-                  Volver
-                </Text>
-              </Pressable>
+              <Button mode="text" onPress={goBack} contentStyle={styles.textButton}>
+                Volver
+              </Button>
             </View>
           ) : (
             <View style={styles.form}>
-              <View style={styles.fieldBlock}>
-                <View style={[styles.field, borderFor(tituloFocused, tituloError)]}>
-                  <View style={styles.notch}>
-                    <Text style={[styles.notchLabel, labelColor(tituloFocused, tituloError)]}>
-                      Título
-                    </Text>
-                    <Text style={styles.required}> *</Text>
-                  </View>
-                  <View style={styles.singleLine}>
-                    <TextInput
-                      value={titulo}
-                      onChangeText={handleTitleChange}
-                      placeholder="Ej. Comprar leche"
-                      placeholderTextColor={palette.outline}
-                      maxLength={120}
-                      onFocus={() => setTituloFocused(true)}
-                      onBlur={() => setTituloFocused(false)}
-                      style={styles.input}
-                      accessibilityLabel="Título"
-                    />
-                    {tituloError ? (
-                      <MaterialIcons name="error" size={20} color={palette.error} />
-                    ) : null}
-                  </View>
-                </View>
+              <View>
+                <TextInput
+                  mode="outlined"
+                  label="Título *"
+                  value={titulo}
+                  onChangeText={handleTitleChange}
+                  placeholder="Ej. Comprar leche"
+                  maxLength={TITLE_MAX_LENGTH}
+                  error={tituloError}
+                  right={
+                    tituloError ? (
+                      <TextInput.Icon icon="alert-circle" color={palette.error} />
+                    ) : undefined
+                  }
+                  style={styles.input}
+                  accessibilityLabel="Título"
+                  accessibilityHint="Campo obligatorio"
+                />
                 <View style={styles.supportRow}>
-                  {tituloError ? (
-                    <View style={styles.errorRow}>
-                      <MaterialIcons name="warning" size={14} color={palette.error} />
-                      <Text style={styles.errorText}>El título es obligatorio.</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.helper}>Sé específico y conciso.</Text>
-                  )}
-                  <Text style={styles.counter}>{titulo.length} / 120</Text>
+                  <HelperText
+                    type={tituloError ? 'error' : 'info'}
+                    visible
+                    style={styles.helperFlex}
+                  >
+                    {tituloError ? 'El título es obligatorio.' : 'Sé específico y conciso.'}
+                  </HelperText>
+                  <HelperText type="info" visible style={styles.counter}>
+                    {`${titulo.length} / ${TITLE_MAX_LENGTH}`}
+                  </HelperText>
                 </View>
               </View>
 
-              <View style={styles.fieldBlock}>
-                <View style={[styles.field, borderFor(descripcionFocused, false)]}>
-                  <View style={styles.notch}>
-                    <Text style={[styles.notchLabel, labelColor(descripcionFocused, false)]}>
-                      Descripción
-                    </Text>
-                    <Text style={styles.optional}> (opcional)</Text>
-                  </View>
-                  <TextInput
-                    value={descripcion}
-                    onChangeText={setDescripcion}
-                    placeholder="Agrega notas o detalles sobre la tarea..."
-                    placeholderTextColor={palette.outline}
-                    multiline
-                    textAlignVertical="top"
-                    onFocus={() => setDescripcionFocused(true)}
-                    onBlur={() => setDescripcionFocused(false)}
-                    style={styles.area}
-                    accessibilityLabel="Descripción"
-                  />
-                </View>
-                <Text style={styles.descHelper}>
+              <View>
+                <TextInput
+                  mode="outlined"
+                  label="Descripción (opcional)"
+                  value={descripcion}
+                  onChangeText={setDescripcion}
+                  placeholder="Agrega notas o detalles sobre la tarea..."
+                  multiline
+                  style={[styles.input, styles.area]}
+                  accessibilityLabel="Descripción"
+                />
+                <HelperText type="info" visible>
                   Formatos sugeridos: enlaces, pasos o recordatorios.
-                </Text>
+                </HelperText>
               </View>
 
               <View style={styles.actions}>
-                <Pressable accessibilityRole="button" onPress={handleSave} style={styles.save}>
-                  <MaterialIcons name="save" size={20} color={palette.onPrimary} />
-                  <Text variant="labelLarge" style={styles.saveLabel}>
-                    {isEditing ? 'Actualizar tarea' : 'Guardar tarea'}
-                  </Text>
-                </Pressable>
-                <Pressable accessibilityRole="button" onPress={goBack} style={styles.discard}>
-                  <Text variant="labelLarge" style={styles.discardLabel}>
-                    Descartar cambios
-                  </Text>
-                </Pressable>
+                <PrimaryButton
+                  icon="content-save"
+                  label={isEditing ? 'Actualizar tarea' : 'Guardar tarea'}
+                  onPress={handleSave}
+                />
+                <Button mode="text" onPress={goBack} contentStyle={styles.textButton}>
+                  Descartar cambios
+                </Button>
               </View>
             </View>
           )}
@@ -187,55 +146,10 @@ export function TaskFormScreen({ navigation, route }: Props) {
   );
 }
 
-function borderFor(focused: boolean, error: boolean) {
-  if (error) {
-    return { borderColor: palette.error, borderWidth: 2 };
-  }
-  if (focused) {
-    return { borderColor: palette.primary, borderWidth: 2 };
-  }
-  return { borderColor: palette.outline, borderWidth: 1 };
-}
-
-function labelColor(focused: boolean, error: boolean) {
-  if (error) {
-    return { color: palette.error };
-  }
-  if (focused) {
-    return { color: palette.primary };
-  }
-  return { color: palette.onSurfaceVariant };
-}
-
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: palette.surface,
-  },
-  topBar: {
-    height: 64,
-    paddingHorizontal: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: palette.surface,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
-    zIndex: 2,
-  },
-  brand: {
-    color: palette.onSurface,
-    fontWeight: '400',
-    flexShrink: 1,
-  },
-  iconHit: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 24,
   },
   body: {
     flex: 1,
@@ -245,140 +159,31 @@ const styles = StyleSheet.create({
   },
   form: {
     padding: 16,
-    gap: 24,
-  },
-  fieldBlock: {
-    gap: 4,
-  },
-  field: {
-    borderRadius: 4,
-    backgroundColor: palette.surface,
-    position: 'relative',
-    marginTop: 8,
-  },
-  notch: {
-    position: 'absolute',
-    top: -8,
-    left: 12,
-    zIndex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: palette.surface,
-    paddingHorizontal: 6,
-  },
-  notchLabel: {
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.5,
-    fontWeight: '500',
-  },
-  required: {
-    color: palette.error,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '500',
-  },
-  optional: {
-    color: palette.onSurfaceVariant,
-    opacity: 0.7,
-    fontSize: 11,
-    lineHeight: 16,
-    letterSpacing: 0.5,
-  },
-  singleLine: {
-    minHeight: 56,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    gap: 16,
   },
   input: {
-    flex: 1,
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.5,
-    color: palette.onSurface,
-    paddingVertical: 14,
+    backgroundColor: palette.surface,
   },
   area: {
     minHeight: 120,
-    paddingHorizontal: 14,
-    paddingTop: 16,
-    paddingBottom: 14,
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.5,
-    color: palette.onSurface,
   },
   supportRow: {
-    minHeight: 20,
-    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 8,
   },
-  errorRow: {
+  helperFlex: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  errorText: {
-    flex: 1,
-    color: palette.error,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.4,
-  },
-  helper: {
-    flex: 1,
-    color: palette.onSurfaceVariant,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.4,
   },
   counter: {
-    color: palette.onSurfaceVariant,
-    fontSize: 11,
-    lineHeight: 16,
-    letterSpacing: 0.5,
-    fontWeight: '500',
-  },
-  descHelper: {
-    paddingHorizontal: 12,
-    color: palette.onSurfaceVariant,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.4,
+    textAlign: 'right',
   },
   actions: {
     gap: 8,
     marginTop: 16,
   },
-  save: {
+  textButton: {
     minHeight: 48,
-    height: 48,
-    borderRadius: 20,
-    backgroundColor: palette.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  saveLabel: {
-    color: palette.onPrimary,
-    fontWeight: '500',
-  },
-  discard: {
-    minHeight: 48,
-    height: 48,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  discardLabel: {
-    color: palette.primary,
   },
   missing: {
     flexGrow: 1,

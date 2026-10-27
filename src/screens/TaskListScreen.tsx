@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Dialog, FAB, Portal, Text } from 'react-native-paper';
+import {
+  Appbar,
+  Avatar,
+  Button,
+  Dialog,
+  FAB,
+  Portal,
+  Snackbar,
+  Text,
+  TextInput,
+} from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Header } from '../components/Header';
+import { PrimaryButton } from '../components/PrimaryButton';
 import { TaskItem } from '../components/TaskItem';
 import { useTasks } from '../context/TasksContext';
 import { palette } from '../theme/theme';
@@ -13,6 +24,8 @@ import type { Task } from '../types/Task';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskList'>;
+
+const SNACKBAR_DURATION = 4000;
 
 function normalize(value: string): string {
   return value
@@ -33,6 +46,7 @@ export function TaskListScreen({ navigation }: Props) {
   const { tasks, removeTask, restoreTask, toggleCompleted, feedback, clearFeedback } = useTasks();
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const pendingUndo = useRef<{ task: Task; index: number } | null>(null);
@@ -56,16 +70,9 @@ export function TaskListScreen({ navigation }: Props) {
     const undo = feedback === 'Tarea eliminada' ? pendingUndo.current : null;
     pendingUndo.current = null;
     setNotice({ id: Date.now(), message: feedback, undo });
+    setSnackbarVisible(true);
     clearFeedback();
   }, [isFocused, feedback, clearFeedback]);
-
-  useEffect(() => {
-    if (!notice) {
-      return;
-    }
-    const timeout = setTimeout(() => setNotice(null), 4000);
-    return () => clearTimeout(timeout);
-  }, [notice]);
 
   const confirmDelete = () => {
     if (!taskToDelete) {
@@ -82,8 +89,9 @@ export function TaskListScreen({ navigation }: Props) {
       return;
     }
     restoreTask(notice.undo.task, notice.undo.index);
-    setNotice(null);
   };
+
+  const dismissSnackbar = () => setSnackbarVisible(false);
 
   const openForm = () => navigation.navigate('TaskForm');
 
@@ -93,59 +101,40 @@ export function TaskListScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <View style={styles.topBar}>
-        {searching ? (
-          <>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Cerrar búsqueda"
-              onPress={closeSearch}
-              style={styles.iconHit}
-              android_ripple={{ color: palette.surfaceContainerHigh, borderless: true, radius: 24 }}
-            >
-              <MaterialIcons name="arrow-back" size={24} color={palette.onSurface} />
-            </Pressable>
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Buscar tareas"
-              placeholderTextColor={palette.outline}
-              autoFocus
-              autoCorrect={false}
-              returnKeyType="search"
-              style={styles.searchInput}
-              accessibilityLabel="Buscar tareas"
+    <SafeAreaView style={styles.safe} edges={['left', 'right']}>
+      {searching ? (
+        <Header onBack={closeSearch} backAccessibilityLabel="Cerrar búsqueda">
+          <TextInput
+            mode="flat"
+            dense
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Buscar tareas"
+            autoFocus
+            autoCorrect={false}
+            returnKeyType="search"
+            style={styles.searchInput}
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
+            accessibilityLabel="Buscar tareas"
+          />
+          {query.length > 0 ? (
+            <Appbar.Action
+              icon="close"
+              onPress={() => setQuery('')}
+              accessibilityLabel="Borrar búsqueda"
             />
-            {query.length > 0 ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Borrar búsqueda"
-                onPress={() => setQuery('')}
-                style={styles.iconHit}
-                android_ripple={{ color: palette.surfaceContainerHigh, borderless: true, radius: 24 }}
-              >
-                <MaterialIcons name="close" size={24} color={palette.onSurfaceVariant} />
-              </Pressable>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <Text variant="titleLarge" style={styles.brand}>
-              To-do List
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Buscar tareas"
-              onPress={() => setSearching(true)}
-              style={styles.iconHit}
-              android_ripple={{ color: palette.surfaceContainerHigh, borderless: true, radius: 24 }}
-            >
-              <MaterialIcons name="search" size={24} color={palette.onSurfaceVariant} />
-            </Pressable>
-          </>
-        )}
-      </View>
+          ) : null}
+        </Header>
+      ) : (
+        <Header title="To-do List">
+          <Appbar.Action
+            icon="magnify"
+            onPress={() => setSearching(true)}
+            accessibilityLabel="Buscar tareas"
+          />
+        </Header>
+      )}
 
       <View style={styles.subBar}>
         <Text variant="titleLarge" style={styles.sectionTitle}>
@@ -163,32 +152,33 @@ export function TaskListScreen({ navigation }: Props) {
       <View style={styles.body}>
         {tasks.length === 0 ? (
           <View style={styles.empty}>
-            <View style={styles.emptyIcon}>
-              <MaterialIcons name="assignment" size={64} color={palette.onSurfaceVariant} />
-            </View>
+            <Avatar.Icon
+              size={96}
+              icon="clipboard-text-outline"
+              color={palette.onSurfaceVariant}
+              style={styles.emptyIcon}
+            />
             <Text variant="titleMedium" style={styles.emptyTitle}>
               No hay tareas
             </Text>
             <Text variant="bodyMedium" style={styles.emptyBody}>
               No hay tareas pendientes en esta vista. Agrega la primera con el botón inferior.
             </Text>
-            <Pressable
-              accessibilityRole="button"
+            <PrimaryButton
+              icon="plus"
+              label="Crear primera tarea"
               onPress={openForm}
               style={styles.emptyButton}
-              hitSlop={4}
-            >
-              <MaterialIcons name="add" size={18} color={palette.onPrimary} />
-              <Text variant="labelLarge" style={styles.emptyButtonLabel}>
-                Crear primera tarea
-              </Text>
-            </Pressable>
+            />
           </View>
         ) : visibleTasks.length === 0 ? (
           <View style={styles.empty}>
-            <View style={styles.emptyIcon}>
-              <MaterialIcons name="search-off" size={64} color={palette.onSurfaceVariant} />
-            </View>
+            <Avatar.Icon
+              size={96}
+              icon="magnify-close"
+              color={palette.onSurfaceVariant}
+              style={styles.emptyIcon}
+            />
             <Text variant="titleMedium" style={styles.emptyTitle}>
               Sin resultados
             </Text>
@@ -217,38 +207,36 @@ export function TaskListScreen({ navigation }: Props) {
         )}
 
         <FAB
-          icon={({ color }) => <MaterialIcons name="add" size={28} color={color} />}
+          icon="plus"
           color={palette.onPrimary}
           customSize={56}
           style={[
             styles.fab,
-            { bottom: 16 + insets.bottom + (notice ? 72 : 0) },
+            { bottom: 16 + insets.bottom + (snackbarVisible ? 72 : 0) },
           ]}
           onPress={openForm}
           accessibilityLabel="Crear nueva tarea"
         />
 
-        {notice ? (
-          <View style={[styles.snackbar, { bottom: 16 + insets.bottom }]}>
-            <View style={styles.snackbarMessage}>
-              <MaterialIcons name="info" size={20} color={palette.inversePrimary} />
-              <Text variant="bodyMedium" style={styles.snackbarText}>
-                {notice.message}
-              </Text>
-            </View>
-            {notice.undo ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={undoDelete}
-                style={styles.undo}
-              >
-                <Text variant="labelLarge" style={styles.undoLabel}>
-                  Deshacer
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
+        <Snackbar
+          key={notice?.id}
+          visible={snackbarVisible}
+          onDismiss={dismissSnackbar}
+          duration={SNACKBAR_DURATION}
+          wrapperStyle={{ bottom: insets.bottom }}
+          action={
+            notice?.undo
+              ? {
+                  label: 'Deshacer',
+                  onPress: undoDelete,
+                  accessibilityLabel: 'Deshacer eliminación',
+                  contentStyle: styles.touchTarget,
+                }
+              : undefined
+          }
+        >
+          {notice?.message ?? ''}
+        </Snackbar>
       </View>
 
       <Portal>
@@ -257,40 +245,34 @@ export function TaskListScreen({ navigation }: Props) {
           onDismiss={() => setTaskToDelete(null)}
           style={styles.dialog}
         >
-          <Dialog.Content style={styles.dialogContent}>
-            <View style={styles.dialogIcon}>
-              <MaterialIcons name="delete" size={24} color={palette.tertiary} />
-            </View>
-            <Text variant="headlineSmall" style={styles.dialogTitle}>
-              Eliminar tarea
-            </Text>
+          <Dialog.Icon icon="delete" color={palette.tertiary} />
+          <Dialog.Title style={styles.dialogTitle}>Eliminar tarea</Dialog.Title>
+          <Dialog.Content>
             <Text variant="bodyMedium" style={styles.dialogBody}>
               ¿Quieres eliminar "
               <Text variant="bodyMedium" style={styles.dialogEmphasis}>
                 {taskToDelete?.titulo}
               </Text>
-              "? Esta acción no se puede deshacer.
+              "? Podrás deshacer esta acción durante unos segundos.
             </Text>
           </Dialog.Content>
           <Dialog.Actions style={styles.dialogActions}>
-            <Pressable
-              accessibilityRole="button"
+            <Button
+              mode="text"
               onPress={() => setTaskToDelete(null)}
-              style={styles.dialogButton}
+              contentStyle={styles.touchTarget}
             >
-              <Text variant="labelLarge" style={styles.cancelLabel}>
-                Cancelar
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
+              Cancelar
+            </Button>
+            <Button
+              mode="text"
+              textColor={palette.tertiary}
               onPress={confirmDelete}
-              style={styles.dialogButton}
+              contentStyle={styles.touchTarget}
+              labelStyle={styles.deleteLabel}
             >
-              <Text variant="labelLarge" style={styles.deleteLabel}>
-                Eliminar
-              </Text>
-            </Pressable>
+              Eliminar
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -307,37 +289,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.surface,
   },
-  topBar: {
-    height: 64,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: palette.surface,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
-    zIndex: 2,
-  },
-  brand: {
-    color: palette.onSurface,
-    fontWeight: '400',
-  },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    lineHeight: 24,
-    color: palette.onSurface,
-    paddingVertical: 8,
-  },
-  iconHit: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 24,
+    backgroundColor: 'transparent',
   },
   subBar: {
     paddingHorizontal: 16,
@@ -387,12 +341,7 @@ const styles = StyleSheet.create({
     paddingVertical: 64,
   },
   emptyIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
     backgroundColor: palette.surfaceContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 16,
   },
   emptyTitle: {
@@ -408,17 +357,7 @@ const styles = StyleSheet.create({
   },
   emptyButton: {
     marginTop: 24,
-    minHeight: 40,
-    paddingHorizontal: 24,
     borderRadius: 999,
-    backgroundColor: palette.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  emptyButtonLabel: {
-    color: palette.onPrimary,
   },
   fab: {
     position: 'absolute',
@@ -426,69 +365,18 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     backgroundColor: palette.primary,
   },
-  snackbar: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
+  touchTarget: {
     minHeight: 48,
-    borderRadius: 8,
-    backgroundColor: palette.inverseSurface,
-    paddingLeft: 16,
-    paddingRight: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    elevation: 6,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  snackbarMessage: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-  },
-  snackbarText: {
-    flex: 1,
-    color: palette.inverseOnSurface,
-    letterSpacing: 0.25,
-  },
-  undo: {
     minWidth: 48,
-    minHeight: 48,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  undoLabel: {
-    color: palette.inversePrimary,
-    fontWeight: '500',
   },
   dialog: {
     borderRadius: 28,
     backgroundColor: palette.surfaceContainerLowest,
   },
-  dialogContent: {
-    paddingTop: 24,
-  },
-  dialogIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: palette.tertiaryFixed,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
   dialogTitle: {
     color: palette.onSurface,
-    fontWeight: '400',
   },
   dialogBody: {
-    marginTop: 16,
     color: palette.onSurfaceVariant,
     letterSpacing: 0.25,
   },
@@ -501,19 +389,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     gap: 8,
   },
-  dialogButton: {
-    minWidth: 48,
-    minHeight: 48,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelLabel: {
-    color: palette.primary,
-  },
   deleteLabel: {
-    color: palette.tertiary,
     fontWeight: '600',
   },
 });

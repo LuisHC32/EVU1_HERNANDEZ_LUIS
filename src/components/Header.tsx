@@ -1,18 +1,26 @@
+import type { ReactNode } from 'react';
 import { Appbar } from 'react-native-paper';
 
 type HeaderProps = {
-  title: string;
-  showBack?: boolean;
+  title?: string;
   onBack?: () => void;
+  backAccessibilityLabel?: string;
+  children?: ReactNode;
 };
 
-export function Header({ title, showBack = false, onBack }: HeaderProps) {
+export function Header({
+  title,
+  onBack,
+  backAccessibilityLabel = 'Volver atrás',
+  children,
+}: HeaderProps) {
   return (
-    <Appbar.Header statusBarHeight={0} elevated>
-      {showBack ? (
-        <Appbar.BackAction onPress={onBack} accessibilityLabel="Volver" />
+    <Appbar.Header elevated mode="small">
+      {onBack ? (
+        <Appbar.BackAction onPress={onBack} accessibilityLabel={backAccessibilityLabel} />
       ) : null}
-      <Appbar.Content title={title} />
+      {title ? <Appbar.Content title={title} /> : null}
+      {children}
     </Appbar.Header>
   );
 }
