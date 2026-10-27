@@ -32,7 +32,7 @@ EVU1_HERNANDEZ_LUIS/
 
 - **Arquitectura:** Corre en el motor JavaScript y cada `<View>`/`<Text>` se convierte en un componente nativo real, sin HTML ni navegador. Uso React Native 0.88 con Expo SDK 58, compatibles con la nueva arquitectura (JSI, Fabric, TurboModules).
 - **Expo:** Expo Go y librerías como `expo-status-bar` y `@expo/vector-icons`.
-- **Componentes:** Las funciones que devuelven la UI. Uso nativos (`View`, `FlatList`, `TextInput`, `Pressable`...), de Paper (`FAB`, `Dialog`, `Text`) y propios (`TaskItem`, `Separator`).
+- **Componentes:** Las funciones que devuelven la UI. Uso nativos (`View`, `FlatList`, `ScrollView`), de Paper (`Appbar`, `Card`, `TextInput`, `Button`, `IconButton`, `FAB`, `Dialog`, `Snackbar`, `Text`) y propios (`TaskItem`, `Header`, `PrimaryButton`).
 - **JSX:** Sintaxis tipo HTML con expresiones `{}` (p. ej., `{isEditing ? 'Editar tarea' : 'Nueva Tarea'}` en `TaskFormScreen.tsx`).
 - **Props:** Datos de solo lectura del padre al hijo, tipados (`TaskItemProps` en `TaskItem.tsx`).
 - **Estado:** Global en `TasksContext.tsx` (tareas y feedback) y local en cada pantalla (formulario, búsqueda, tarea por eliminar). Siempre lo actualizo de forma inmutable:
@@ -85,7 +85,7 @@ export function useTasks(): TasksContextValue {
 - **Tipografía:** Variantes de `Text` de Paper (`headlineSmall`, `titleLarge`, `bodyLarge`, `labelLarge`, `labelMedium`...).
 - **Colores (`src/theme/theme.ts`):** `primary #4F378A` (FAB, Guardar, check), `surface #FEF7FF` (fondo), `surfaceContainerLowest #FFFFFF` (tarjetas), `onSurface #1D1A22` (textos), `tertiary #910809` (eliminar), `error #BA1A1A` (validación), `inverseSurface #322F37` (aviso).
 - **Áreas táctiles:** `IconButton` de 48 × 48 dp, botones con `minHeight: 48`, `hitSlop={4}` en "Crear primera tarea" y `accessibilityLabel`.
-- **Estado vacío:** Icono `assignment`, "No hay tareas" y botón para crear; con búsqueda sin resultados, `search-off` y "Sin resultados".
+- **Estado vacío:** `Avatar.Icon` con `clipboard-text-outline`, "No hay tareas" y botón para crear; con búsqueda sin resultados, `magnify-close` y "Sin resultados".
 - **Confirmación:** `Dialog` antes de eliminar; "Eliminar" en `tertiary` para marcar la acción peligrosa.
 - **Feedback:** `Snackbar` de Paper de 4 s ("Tarea guardada", "Tarea eliminada" + **Deshacer**); validación "El título es obligatorio." con `HelperText`; contador "N / 120"; `KeyboardAvoidingView` y `softwareKeyboardLayoutMode: "resize"` (`app.json`).
 
@@ -132,7 +132,7 @@ npx expo start
 
 Si no hay tareas, la lista muestra el estado vacío y el botón **Crear primera tarea**. El botón flotante **+** (`FAB`) abre el formulario.
 
-![Pantalla de inicio sin tareas](imgs/Inicio.jpeg)
+![Pantalla de inicio sin tareas](imgs/Inicio.png)
 
 ### Crear tarea
 
@@ -140,7 +140,7 @@ El formulario pide el título (máximo 120 caracteres) y una descripción opcion
 
 ![Formulario de nueva tarea vacío](imgs/Nueva%20Tarea%20Vacia.png)
 
-![Formulario de nueva tarea con datos](imgs/Crear%20Tarea.jpeg)
+![Formulario de nueva tarea con datos](imgs/Crear%20Tarea.png)
 
 Si el título está vacío, la tarea no se guarda: el campo se marca en rojo y `HelperText` muestra **El título es obligatorio.**
 
@@ -148,7 +148,7 @@ Si el título está vacío, la tarea no se guarda: el campo se marca en rojo y `
 
 Al guardar, la app vuelve a la lista y el `Snackbar` muestra **Tarea guardada**. El contador indica cuántas tareas están activas.
 
-![Tarea creada](imgs/CrearTarea%20Exitosamente.jpeg)
+![Tarea creada](imgs/CrearTarea%20Exitosamente.png)
 
 ### Lista de tareas
 
@@ -160,25 +160,25 @@ Cada tarea es una `Card` con su título, su descripción, una casilla para marca
 
 El ícono de lápiz abre la misma pantalla con los datos de la tarea. La cabecera dice **Editar tarea** y el botón dice **Actualizar tarea**.
 
-![Formulario de edición](imgs/Editar%20Tarea.jpeg)
+![Formulario de edición](imgs/Editar%20Tarea.png)
 
 Al guardar, la app vuelve a la lista y aparece el aviso **Tarea actualizada correctamente**.
 
-![Tarea actualizada](imgs/Editar%20Tarea%20Exitosamente.jpeg)
+![Tarea actualizada](imgs/Editar%20Tarea%20Exitosamente.png)
 
 ### Marcar como realizada
 
 La casilla de cada tarjeta cambia el estado. La tarea realizada aparece marcada y deja de contarse como activa, pero sigue visible en la lista.
 
-![Tarea marcada como realizada](imgs/Tarea%20realizada.jpeg)
+![Tarea marcada como realizada](imgs/Tarea%20realizada.png)
 
 ### Buscar
 
 La lupa de la barra superior abre el buscador. Filtra por título y descripción, sin distinguir mayúsculas ni acentos, y el contador pasa a mostrar los resultados.
 
-![Buscador abierto](imgs/Buscar%20Tarea.jpeg)
+![Buscador abierto](imgs/Buscar%20Tarea.png)
 
-![Lista filtrada](imgs/Buscar%20Tarea%20Filtrado.jpeg)
+![Lista filtrada](imgs/Buscar%20Tarea%20Filtrado.png)
 
 Si ninguna tarea coincide, la app muestra el estado **Sin resultados**.
 
@@ -188,11 +188,11 @@ Si ninguna tarea coincide, la app muestra el estado **Sin resultados**.
 
 El ícono de basurero abre un `Dialog` de confirmación. **Cancelar** cierra el diálogo y **Eliminar** quita la tarea.
 
-![Confirmación para eliminar](imgs/Eliminar%20Tarea.jpeg)
+![Confirmación para eliminar](imgs/Eliminar%20Tarea.png)
 
 Después de eliminar, el `Snackbar` muestra **Tarea eliminada** con la opción **Deshacer**.
 
-![Tarea eliminada](imgs/Eliminar%20Tarea%20Exitosamente.jpeg)
+![Tarea eliminada](imgs/Eliminar%20Tarea%20Exitosamente.png)
 
 Si tocas **Deshacer**, la tarea vuelve a su lugar en la lista.
 
