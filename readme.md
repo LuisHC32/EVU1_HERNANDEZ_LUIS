@@ -3,7 +3,6 @@
 **Profesor:** Boris Belmar.
 **Institución:** IPSS.
 
-
 ## Estructura de archivos
 
 ```
