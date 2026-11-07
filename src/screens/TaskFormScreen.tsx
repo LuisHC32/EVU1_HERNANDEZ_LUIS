@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Button, HelperText, Text, TextInput } from 'react-native-paper';
+import { ActivityIndicator, Button, HelperText, Snackbar, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Header } from '../components/Header';
+import { PhotoPicker } from '../components/PhotoPicker';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useTasks } from '../context/TasksContext';
+import { getCurrentLocation } from '../services/location';
 import { palette } from '../theme/theme';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskForm'>;
 
 const TITLE_MAX_LENGTH = 120;
+const SAVED_NO_PERMISSION = 'Tarea guardada sin ubicación: permiso denegado.';
+const SAVED_NO_LOCATION = 'Tarea guardada sin ubicación.';
 
 export function TaskFormScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
@@ -23,7 +27,11 @@ export function TaskFormScreen({ navigation, route }: Props) {
 
   const [titulo, setTitulo] = useState(existing?.titulo ?? '');
   const [descripcion, setDescripcion] = useState(existing?.descripcion ?? '');
+  const [photoUris, setPhotoUris] = useState(existing?.photoUris ?? []);
+  const [address, setAddress] = useState(existing?.location?.address ?? '');
   const [tituloError, setTituloError] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const goBack = () => navigation.goBack();
 
@@ -34,27 +42,58 @@ export function TaskFormScreen({ navigation, route }: Props) {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const tituloLimpio = titulo.trim();
     const descripcionLimpia = descripcion.trim();
 
-    if (!tituloLimpio) {
-      setTituloError(true);
+    if (!tituloLimpio || locating) {
+      if (!tituloLimpio) {
+        setTituloError(true);
+      }
       return;
     }
 
     const input = {
       titulo: tituloLimpio,
       descripcion: descripcionLimpia,
+      photoUris,
     };
 
+    const typedAddress = address.trim();
+
     if (existing) {
-      updateTask(existing.id, input);
-    } else {
-      addTask(input);
+      const location = existing.location
+        ? {
+            latitude: existing.location.latitude,
+            longitude: existing.location.longitude,
+            ...(typedAddress ? { address: typedAddress } : {}),
+          }
+        : undefined;
+      updateTask(existing.id, location ? { ...input, location } : input);
+      goBack();
+      return;
     }
 
-    goBack();
+    setLocating(true);
+    try {
+      const result = await getCurrentLocation();
+      const location = result.location
+        ? {
+            latitude: result.location.latitude,
+            longitude: result.location.longitude,
+            ...(typedAddress || result.location.address
+              ? { address: typedAddress || result.location.address }
+              : {}),
+          }
+        : undefined;
+      addTask(
+        { ...input, location },
+        location ? 'Tarea guardada' : result.denied ? SAVED_NO_PERMISSION : SAVED_NO_LOCATION,
+      );
+      goBack();
+    } catch {
+      setLocating(false);
+    }
   };
 
   return (
@@ -128,11 +167,43 @@ export function TaskFormScreen({ navigation, route }: Props) {
                 </HelperText>
               </View>
 
+              <PhotoPicker
+                uris={photoUris}
+                onChange={setPhotoUris}
+                onNotice={setNotice}
+                disabled={locating}
+              />
+
+              <TextInput
+                mode="outlined"
+                label="Ubicación (opcional)"
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Ej. Supermercado Central, Av. Principal 123"
+                maxLength={100}
+                left={<TextInput.Icon icon="map-marker" />}
+                style={styles.input}
+                disabled={locating}
+                accessibilityLabel="Ubicación"
+              />
+
+              {locating ? (
+                <View style={styles.locating} accessibilityLabel="Obteniendo ubicación">
+                  <ActivityIndicator />
+                  <Text variant="bodyMedium" style={styles.locatingText}>
+                    Obteniendo ubicación…
+                  </Text>
+                </View>
+              ) : null}
+
               <View style={styles.actions}>
                 <PrimaryButton
                   icon="content-save"
                   label={isEditing ? 'Actualizar tarea' : 'Guardar tarea'}
-                  onPress={handleSave}
+                  onPress={() => {
+                    void handleSave();
+                  }}
+                  disabled={locating}
                 />
                 <Button mode="text" onPress={goBack} contentStyle={styles.textButton}>
                   Descartar cambios
@@ -142,6 +213,15 @@ export function TaskFormScreen({ navigation, route }: Props) {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Snackbar
+        visible={notice !== null}
+        onDismiss={() => setNotice(null)}
+        duration={4000}
+        wrapperStyle={{ bottom: insets.bottom }}
+      >
+        {notice ?? ''}
+      </Snackbar>
     </SafeAreaView>
   );
 }
@@ -159,7 +239,7 @@ const styles = StyleSheet.create({
   },
   form: {
     padding: 16,
-    gap: 16,
+    gap: 24,
   },
   input: {
     backgroundColor: palette.surface,
@@ -177,6 +257,15 @@ const styles = StyleSheet.create({
   },
   counter: {
     textAlign: 'right',
+  },
+  locating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 48,
+  },
+  locatingText: {
+    color: palette.onSurfaceVariant,
   },
   actions: {
     gap: 8,

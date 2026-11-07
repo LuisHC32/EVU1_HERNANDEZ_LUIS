@@ -12,10 +12,12 @@ EVU1_HERNANDEZ_LUIS/
 ├── app.json          # Configuración de Expo
 ├── package.json      # Dependencias y scripts
 ├── assets/ · imgs/   # Íconos/splash y capturas del README
+├── __tests__/        # cámara, GPS, almacenamiento y formulario
 └── src/
-    ├── components/   # TaskItem, Header, PrimaryButton
-    ├── context/      # TasksContext.tsx: estado global + hook useTasks
+    ├── components/   # TaskItem, Header, PrimaryButton, PhotoPicker
+    ├── context/      # TasksContext.tsx: estado global, hydrate/persist
     ├── screens/      # TaskListScreen.tsx, TaskFormScreen.tsx
+    ├── services/     # camera.ts, location.ts, storage.ts
     ├── theme/        # theme.ts: paleta y tema MD3
     └── types/        # Task.ts, navigation.ts
 ```
@@ -23,7 +25,8 @@ EVU1_HERNANDEZ_LUIS/
 - `index.ts`: Punto de entrada (`"main"` en `package.json`).
 - `src/components/`: Componentes visuales por props. `TaskItem` se usa en la lista; `Header` y `PrimaryButton` quedan disponibles para reutilizar.
 - `src/context/TasksContext.tsx`: Fuente de datos (`addTask`, `updateTask`, `toggleCompleted`, `removeTask`, `restoreTask`, `feedback`).
-- `src/screens/`: Una pantalla por ruta; leen el estado con `useTasks()`.
+- `src/screens/`: Una pantalla por ruta; leen el estado con `useTasks()`. No importan `expo-*` ni AsyncStorage.
+- `src/services/`: Cámara, GPS y almacenamiento local. Las pantallas solo hablan con estas funciones.
 - `src/theme/theme.ts`: `palette` (estilos) y `theme` (para `PaperProvider`).
 - `src/types/`: Tipos compartidos (`Task`, `TaskInput`, `RootStackParamList`).
 
@@ -114,9 +117,9 @@ export function useTasks(): TasksContextValue {
 
 # To-Do List
 
-Aplicación móvil para registrar, buscar, editar y eliminar tareas pendientes. Cada tarea tiene título y descripción. El título es obligatorio.
+Aplicación móvil para registrar, buscar, editar y eliminar tareas pendientes. Cada tarea tiene título y descripción. El título es obligatorio. Al crearla se puede adjuntar una foto (cámara o galería) y se guarda la ubicación si el permiso está concedido.
 
-La interfaz usa Material Design 3 (React Native Paper). Las tareas se guardan en memoria: al cerrar la aplicación se pierden.
+La interfaz usa Material Design 3 (React Native Paper). Las tareas, la foto y la ubicación se guardan en el dispositivo con AsyncStorage y se cargan al abrir la app, también sin conexión. Si se niega un permiso, la tarea se guarda igual.
 
 ## Cómo ejecutarla
 
@@ -205,7 +208,9 @@ Si tocas **Deshacer**, la tarea vuelve a su lugar en la lista.
 - TypeScript
 - React Navigation
 - React Native Paper, tema claro de Material Design 3
+- `expo-image-picker`, `expo-location` y AsyncStorage, usados solo desde `src/services/`
 - Estado con `useState` y `useContext`
+- Jest y React Native Testing Library (`npm test`)
 
 ## ¿Por qué React Native con Expo?
 

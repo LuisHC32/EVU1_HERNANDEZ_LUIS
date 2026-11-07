@@ -2,16 +2,19 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 
+import { loadTasks, saveTasks } from '../services/storage';
 import type { Task, TaskInput } from '../types/Task';
 
 type TasksContextValue = {
   tasks: Task[];
-  addTask: (input: TaskInput) => void;
+  addTask: (input: TaskInput, message?: string) => void;
   updateTask: (id: string, input: TaskInput) => void;
   toggleCompleted: (id: string) => void;
   removeTask: (id: string) => void;
@@ -29,31 +32,79 @@ function createId(): string {
 export function TasksProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  const saveQueue = useRef(Promise.resolve());
+
+  useEffect(() => {
+    let cancelled = false;
+    loadTasks()
+      .then((loaded) => {
+        if (!cancelled) {
+          setTasks(loaded);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) {
+          setHydrated(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+    const snapshot = tasks;
+    saveQueue.current = saveQueue.current
+      .catch(() => undefined)
+      .then(() => saveTasks(snapshot));
+  }, [hydrated, tasks]);
 
   const clearFeedback = useCallback(() => {
     setFeedback(null);
   }, []);
 
-  const addTask = useCallback((input: TaskInput) => {
+  const addTask = useCallback((input: TaskInput, message = 'Tarea guardada') => {
     setTasks((current) => [
       {
         id: createId(),
         titulo: input.titulo,
         descripcion: input.descripcion,
         completada: false,
+        createdAt: new Date().toISOString(),
+        ...(input.photoUris && input.photoUris.length > 0 ? { photoUris: input.photoUris } : {}),
+        ...(input.location ? { location: input.location } : {}),
       },
       ...current,
     ]);
-    setFeedback('Tarea guardada');
+    setFeedback(message);
   }, []);
 
   const updateTask = useCallback((id: string, input: TaskInput) => {
     setTasks((current) =>
-      current.map((task) =>
-        task.id === id
-          ? { ...task, titulo: input.titulo, descripcion: input.descripcion }
-          : task,
-      ),
+      current.map((task) => {
+        if (task.id !== id) {
+          return task;
+        }
+        const next: Task = {
+          ...task,
+          titulo: input.titulo,
+          descripcion: input.descripcion,
+        };
+        if (input.photoUris && input.photoUris.length > 0) {
+          next.photoUris = input.photoUris;
+        } else {
+          delete next.photoUris;
+        }
+        if (input.location) {
+          next.location = input.location;
+        }
+        return next;
+      }),
     );
     setFeedback('Tarea actualizada correctamente');
   }, []);
@@ -105,6 +156,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       clearFeedback,
     ],
   );
+
+  if (!hydrated) {
+    return null;
+  }
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
 }

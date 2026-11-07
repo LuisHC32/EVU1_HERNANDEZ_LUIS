@@ -21,6 +21,22 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Se usa para elegir una foto y adjuntarla a la tarea.",
+          "cameraPermission": "Se usa para tomar una foto y adjuntarla a la tarea.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Se usa para guardar la ubicación al crear una tarea."
+        }
+      ]
+    ]
   }
 }
