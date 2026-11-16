@@ -49,6 +49,11 @@ it('una foto vieja en photoUri se lee como lista', async () => {
   expect(loaded[0]?.photoUris).toEqual(['file://vieja.jpg']);
 });
 
+it('conserva remoteId y syncedAt', async () => {
+  await saveTasks([{ ...task, remoteId: 4, syncedAt: '2026-11-06T01:00:00.000Z' }]);
+  await expect(loadTasks()).resolves.toMatchObject([{ remoteId: 4, syncedAt: '2026-11-06T01:00:00.000Z' }]);
+});
+
 it('sin datos guardados devuelve []', async () => {
   await expect(loadTasks()).resolves.toEqual([]);
 });

@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Appbar,
   Avatar,
+  Banner,
   Button,
   Dialog,
   FAB,
@@ -43,7 +44,8 @@ type Notice = {
 export function TaskListScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
-  const { tasks, removeTask, restoreTask, toggleCompleted, feedback, clearFeedback } = useTasks();
+  const { tasks, offline, pending, removeTask, restoreTask, toggleCompleted, feedback, clearFeedback } =
+    useTasks();
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -148,6 +150,16 @@ export function TaskListScreen({ navigation }: Props) {
           </Text>
         </View>
       </View>
+
+      {offline || pending > 0 ? (
+        <Banner visible icon={offline ? 'cloud-off-outline' : 'cloud-sync-outline'}>
+          {offline
+            ? pending > 0
+              ? `Sin conexión. ${pending} ${pending === 1 ? 'cambio pendiente' : 'cambios pendientes'}. Se sincronizarán al volver.`
+              : 'Sin conexión. Los cambios se sincronizarán al volver.'
+            : `${pending} ${pending === 1 ? 'cambio por sincronizar' : 'cambios por sincronizar'}`}
+        </Banner>
+      ) : null}
 
       <View style={styles.body}>
         {tasks.length === 0 ? (

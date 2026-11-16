@@ -125,5 +125,14 @@ function toTask(value: unknown): Task | null {
   if (location) {
     task.location = location;
   }
+  if (typeof value.remoteId === 'number' && Number.isInteger(value.remoteId) && value.remoteId > 0) {
+    task.remoteId = value.remoteId;
+  }
+  if (typeof value.updatedAt === 'string' && value.updatedAt.length > 0) {
+    task.updatedAt = value.updatedAt;
+  }
+  if (typeof value.syncedAt === 'string' && value.syncedAt.length > 0) {
+    task.syncedAt = value.syncedAt;
+  }
   return task;
 }

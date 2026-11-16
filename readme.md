@@ -17,7 +17,7 @@ EVU1_HERNANDEZ_LUIS/
     ├── components/   # TaskItem, Header, PrimaryButton, PhotoPicker
     ├── context/      # TasksContext.tsx: estado global, hydrate/persist
     ├── screens/      # TaskListScreen.tsx, TaskFormScreen.tsx
-    ├── services/     # camera.ts, location.ts, storage.ts
+    ├── services/     # camera.ts, location.ts, storage.ts, queue.ts, sync.ts, api.ts
     ├── theme/        # theme.ts: paleta y tema MD3
     └── types/        # Task.ts, navigation.ts
 ```
@@ -26,7 +26,7 @@ EVU1_HERNANDEZ_LUIS/
 - `src/components/`: Componentes visuales por props. `TaskItem` se usa en la lista; `Header` y `PrimaryButton` quedan disponibles para reutilizar.
 - `src/context/TasksContext.tsx`: Fuente de datos (`addTask`, `updateTask`, `toggleCompleted`, `removeTask`, `restoreTask`, `feedback`).
 - `src/screens/`: Una pantalla por ruta; leen el estado con `useTasks()`. No importan `expo-*` ni AsyncStorage.
-- `src/services/`: Cámara, GPS y almacenamiento local. Las pantallas solo hablan con estas funciones.
+- `src/services/`: Cámara, GPS, AsyncStorage, cola de sincronización y cliente HTTP. Las pantallas no importan `expo-*` ni la API.
 - `src/theme/theme.ts`: `palette` (estilos) y `theme` (para `PaperProvider`).
 - `src/types/`: Tipos compartidos (`Task`, `TaskInput`, `RootStackParamList`).
 
@@ -121,12 +121,18 @@ Aplicación móvil para registrar, buscar, editar y eliminar tareas pendientes. 
 
 La interfaz usa Material Design 3 (React Native Paper). Las tareas, la foto y la ubicación se guardan en el dispositivo con AsyncStorage y se cargan al abrir la app, también sin conexión. Si se niega un permiso, la tarea se guarda igual.
 
+Con `EXPO_PUBLIC_API_URL` apuntando a `api/`, cada alta, edición o borrado se encola y se envía al servidor al haber red. Sin red la lista sigue funcionando: un aviso dice **Sin conexión. Los cambios se sincronizarán al volver.** y cada tarea pendiente muestra **Sin sincronizar**. Al guardar offline el aviso es **Guardada en este dispositivo. Se sincronizará al volver la conexión.** La API tiene una sola `photo_uri`: se envía la primera foto como texto, no el archivo.
+
 ## Cómo ejecutarla
 
-Requiere Node.js LTS y [Expo Go](https://expo.dev/go) actualizado (SDK 58).
+Requiere Node.js LTS, Postgres y [Expo Go](https://expo.dev/go) actualizado (SDK 58). En el celular, `EXPO_PUBLIC_API_URL` tiene que ser la IP del computador, no `localhost`.
 
 ```bash
 npm install
+cp .env.example .env
+npm install --prefix api
+npm run migrate --prefix api
+npm run dev --prefix api
 npx expo start
 ```
 
@@ -208,7 +214,8 @@ Si tocas **Deshacer**, la tarea vuelve a su lugar en la lista.
 - TypeScript
 - React Navigation
 - React Native Paper, tema claro de Material Design 3
-- `expo-image-picker`, `expo-location` y AsyncStorage, usados solo desde `src/services/`
+- `expo-image-picker`, `expo-location`, AsyncStorage y NetInfo, usados solo desde `src/services/`
+- API Express en `api/` (`npm test --prefix api` necesita Postgres)
 - Estado con `useState` y `useContext`
 - Jest y React Native Testing Library (`npm test`)
 

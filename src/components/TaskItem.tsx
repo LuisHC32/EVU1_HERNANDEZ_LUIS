@@ -123,6 +123,7 @@ export function TaskItem({ task, onToggle, onEdit, onDelete }: TaskItemProps) {
     ? task.location.address ||
       `${task.location.latitude.toFixed(5)}, ${task.location.longitude.toFixed(5)}`
     : '';
+  const unsynced = !task.syncedAt;
 
   return (
     <Card mode="elevated" style={styles.card}>
@@ -175,15 +176,21 @@ export function TaskItem({ task, onToggle, onEdit, onDelete }: TaskItemProps) {
           </View>
         )}
       />
-      {photos.length > 0 || task.descripcion.length > 0 || task.location ? (
+      {photos.length > 0 || task.descripcion.length > 0 || task.location || unsynced ? (
         <Card.Content style={styles.content}>
           {task.descripcion.length > 0 ? (
             <Text variant="bodyMedium" numberOfLines={2} style={styles.description}>
               {task.descripcion}
             </Text>
           ) : null}
-          {photos.length > 0 || task.location ? (
+          {photos.length > 0 || task.location || unsynced ? (
             <View style={styles.chips}>
+          {unsynced ? (
+            <View style={styles.photoChip}>
+              <Icon source="cloud-off-outline" size={16} color={palette.primary} />
+              <Text style={styles.photoChipText}>Sin sincronizar</Text>
+            </View>
+          ) : null}
           {photos.length > 0 ? (
             <Pressable
               onPress={() => setPhotoOpen(true)}
