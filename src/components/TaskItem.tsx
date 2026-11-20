@@ -7,9 +7,11 @@ import type { Task } from '../types/Task';
 
 type TaskItemProps = {
   task: Task;
+  syncing?: boolean;
   onToggle: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
+  onSync: (task: Task) => void;
 };
 
 const TOUCH = 48;
@@ -115,7 +117,20 @@ function PhotoModal({
   );
 }
 
-export function TaskItem({ task, onToggle, onEdit, onDelete }: TaskItemProps) {
+function SyncIcon({ size, color, synced }: { size: number; color: string; synced: boolean }) {
+  return (
+    <View style={[styles.syncIconWrap, { width: size + 4, height: size + 4 }]}>
+      <Icon source="sync" size={size} color={color} />
+      {synced ? (
+        <View testID="sync-check-badge" style={styles.syncCheckBadge}>
+          <Icon source="check-circle" size={12} color={palette.primary} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+export function TaskItem({ task, syncing = false, onToggle, onEdit, onDelete, onSync }: TaskItemProps) {
   const [photoOpen, setPhotoOpen] = useState(false);
   const photos = task.photoUris ?? [];
   const photoLabel = photos.length === 1 ? '1 foto adjunta' : `${photos.length} fotos adjuntas`;
@@ -123,7 +138,7 @@ export function TaskItem({ task, onToggle, onEdit, onDelete }: TaskItemProps) {
     ? task.location.address ||
       `${task.location.latitude.toFixed(5)}, ${task.location.longitude.toFixed(5)}`
     : '';
-  const unsynced = !task.syncedAt;
+  const unsynced = !task.remoteId || !task.syncedAt;
 
   return (
     <Card mode="elevated" style={styles.card}>
@@ -157,6 +172,19 @@ export function TaskItem({ task, onToggle, onEdit, onDelete }: TaskItemProps) {
         right={() => (
           <View style={styles.actions}>
             <IconButton
+              icon={({ size, color }) => (
+                <SyncIcon size={size} color={color} synced={!unsynced} />
+              )}
+              iconColor={unsynced ? palette.primary : palette.onSurfaceVariant}
+              size={22}
+              loading={syncing}
+              disabled={syncing}
+              style={styles.iconButton}
+              onPress={() => onSync(task)}
+              accessibilityLabel={`Sincronizar tarea ${task.titulo}`}
+              accessibilityValue={{ text: unsynced ? 'Sin sincronizar' : 'Sincronizada' }}
+            />
+            <IconButton
               icon="pencil"
               iconColor={palette.onSurfaceVariant}
               size={22}
@@ -176,41 +204,35 @@ export function TaskItem({ task, onToggle, onEdit, onDelete }: TaskItemProps) {
           </View>
         )}
       />
-      {photos.length > 0 || task.descripcion.length > 0 || task.location || unsynced ? (
+      {photos.length > 0 || task.descripcion.length > 0 || task.location ? (
         <Card.Content style={styles.content}>
           {task.descripcion.length > 0 ? (
             <Text variant="bodyMedium" numberOfLines={2} style={styles.description}>
               {task.descripcion}
             </Text>
           ) : null}
-          {photos.length > 0 || task.location || unsynced ? (
+          {photos.length > 0 || task.location ? (
             <View style={styles.chips}>
-          {unsynced ? (
-            <View style={styles.photoChip}>
-              <Icon source="cloud-off-outline" size={16} color={palette.primary} />
-              <Text style={styles.photoChipText}>Sin sincronizar</Text>
-            </View>
-          ) : null}
-          {photos.length > 0 ? (
-            <Pressable
-              onPress={() => setPhotoOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel={`Ver ${photoLabel}`}
-              style={styles.photoChip}
-            >
-              <Icon source="image" size={16} color={palette.primary} />
-              <Text style={styles.photoChipText}>{photoLabel}</Text>
-              <Icon source="eye" size={14} color={palette.onSurfaceVariant} />
-            </Pressable>
-          ) : null}
-          {task.location ? (
-            <View style={styles.locationChip}>
-              <Icon source="map-marker" size={16} color={palette.primary} />
-              <Text numberOfLines={1} style={styles.chipText}>
-                {address}
-              </Text>
-            </View>
-          ) : null}
+              {photos.length > 0 ? (
+                <Pressable
+                  onPress={() => setPhotoOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver ${photoLabel}`}
+                  style={styles.photoChip}
+                >
+                  <Icon source="image" size={16} color={palette.primary} />
+                  <Text style={styles.photoChipText}>{photoLabel}</Text>
+                  <Icon source="eye" size={14} color={palette.onSurfaceVariant} />
+                </Pressable>
+              ) : null}
+              {task.location ? (
+                <View style={styles.locationChip}>
+                  <Icon source="map-marker" size={16} color={palette.primary} />
+                  <Text numberOfLines={1} style={styles.chipText}>
+                    {address}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
         </Card.Content>
@@ -263,9 +285,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconButton: {
-    width: TOUCH,
+    width: 40,
     height: TOUCH,
     margin: 0,
+  },
+  syncIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncCheckBadge: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    borderRadius: 7,
+    backgroundColor: palette.surfaceContainerLowest,
   },
   content: {
     paddingLeft: 8 + TOUCH + 8,

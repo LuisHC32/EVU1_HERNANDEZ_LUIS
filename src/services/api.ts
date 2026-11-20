@@ -7,9 +7,41 @@ export type ApiResult =
   | { kind: 'drop'; status: number }
   | { kind: 'stop' };
 
+export type ListResult =
+  | { kind: 'ok'; ids: number[] }
+  | { kind: 'error' };
+
 export function apiBase(): string {
   const raw = process.env.EXPO_PUBLIC_API_URL;
   return (typeof raw === 'string' ? raw : '').replace(/\/$/, '');
+}
+
+/** Obtiene los ids de las tareas actualmente registradas en la API. */
+export async function listTaskIds(): Promise<ListResult> {
+  const base = apiBase();
+  if (!base) return { kind: 'error' };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(`${base}/tasks`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    if (!response.ok) return { kind: 'error' };
+    const parsed: unknown = await response.json().catch(() => null);
+    if (!Array.isArray(parsed)) return { kind: 'error' };
+    const ids: number[] = [];
+    for (const item of parsed) {
+      const id = readId(item);
+      if (id !== undefined) ids.push(id);
+    }
+    return { kind: 'ok', ids };
+  } catch {
+    return { kind: 'error' };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function createTask(payload: TaskPayload): Promise<ApiResult> {

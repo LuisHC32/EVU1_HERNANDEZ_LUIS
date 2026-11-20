@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Appbar,
   Avatar,
-  Banner,
   Button,
   Dialog,
   FAB,
+  Icon,
   Portal,
   Snackbar,
   Text,
@@ -44,8 +44,21 @@ type Notice = {
 export function TaskListScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
-  const { tasks, offline, pending, removeTask, restoreTask, toggleCompleted, feedback, clearFeedback } =
-    useTasks();
+  const {
+    tasks,
+    offline,
+    pending,
+    refreshing,
+    syncingIds,
+    removeTask,
+    restoreTask,
+    toggleCompleted,
+    syncTask,
+    refreshSync,
+    verifySync,
+    feedback,
+    clearFeedback,
+  } = useTasks();
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -64,6 +77,13 @@ export function TaskListScreen({ navigation }: Props) {
   }, [tasks, normalizedQuery]);
   const isFiltering = normalizedQuery.length > 0;
   const activas = tasks.filter((task) => !task.completada).length;
+
+  useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+    void verifySync();
+  }, [isFocused, verifySync]);
 
   useEffect(() => {
     if (!isFocused || !feedback) {
@@ -102,6 +122,17 @@ export function TaskListScreen({ navigation }: Props) {
     setQuery('');
   };
 
+  const syncAlertMessage = offline
+    ? pending > 0
+      ? `Sin conexión. ${pending} ${pending === 1 ? 'cambio pendiente' : 'cambios pendientes'}.`
+      : 'Sin conexión.'
+    : `${pending} ${pending === 1 ? 'cambio por sincronizar' : 'cambios por sincronizar'}`;
+
+  const showSyncAlert = () => {
+    setNotice({ id: Date.now(), message: syncAlertMessage, undo: null });
+    setSnackbarVisible(true);
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right']}>
       {searching ? (
@@ -130,6 +161,32 @@ export function TaskListScreen({ navigation }: Props) {
         </Header>
       ) : (
         <Header title="To-do List">
+          {offline || pending > 0 ? (
+            <Pressable
+              onPress={showSyncAlert}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={syncAlertMessage}
+              style={[styles.syncAlert, offline && styles.syncAlertOffline]}
+            >
+              <Icon
+                source={offline ? 'cloud-off-outline' : 'cloud-sync-outline'}
+                size={18}
+                color={offline ? palette.onErrorContainer : palette.primary}
+              />
+              <Text
+                variant="labelMedium"
+                numberOfLines={1}
+                style={[styles.syncAlertText, offline && styles.syncAlertTextOffline]}
+              >
+                {offline
+                  ? pending > 0
+                    ? `Sin red · ${pending}`
+                    : 'Sin conexión'
+                  : `${pending} pendiente${pending === 1 ? '' : 's'}`}
+              </Text>
+            </Pressable>
+          ) : null}
           <Appbar.Action
             icon="magnify"
             onPress={() => setSearching(true)}
@@ -150,16 +207,6 @@ export function TaskListScreen({ navigation }: Props) {
           </Text>
         </View>
       </View>
-
-      {offline || pending > 0 ? (
-        <Banner visible icon={offline ? 'cloud-off-outline' : 'cloud-sync-outline'}>
-          {offline
-            ? pending > 0
-              ? `Sin conexión. ${pending} ${pending === 1 ? 'cambio pendiente' : 'cambios pendientes'}. Se sincronizarán al volver.`
-              : 'Sin conexión. Los cambios se sincronizarán al volver.'
-            : `${pending} ${pending === 1 ? 'cambio por sincronizar' : 'cambios por sincronizar'}`}
-        </Banner>
-      ) : null}
 
       <View style={styles.body}>
         {tasks.length === 0 ? (
@@ -202,6 +249,10 @@ export function TaskListScreen({ navigation }: Props) {
           <FlatList
             data={visibleTasks}
             keyExtractor={(item) => item.id}
+            refreshing={refreshing}
+            onRefresh={() => {
+              void refreshSync();
+            }}
             contentContainerStyle={[
               styles.listContent,
               { paddingBottom: 112 + insets.bottom },
@@ -210,9 +261,13 @@ export function TaskListScreen({ navigation }: Props) {
             renderItem={({ item }) => (
               <TaskItem
                 task={item}
+                syncing={syncingIds.includes(item.id)}
                 onToggle={(task) => toggleCompleted(task.id)}
                 onEdit={(task) => navigation.navigate('TaskForm', { taskId: task.id })}
                 onDelete={setTaskToDelete}
+                onSync={(task) => {
+                  void syncTask(task.id);
+                }}
               />
             )}
           />
@@ -304,6 +359,25 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  syncAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: palette.secondaryContainer,
+  },
+  syncAlertOffline: {
+    backgroundColor: palette.errorContainer,
+  },
+  syncAlertText: {
+    color: palette.onSecondaryFixed,
+    fontWeight: '500',
+  },
+  syncAlertTextOffline: {
+    color: palette.onErrorContainer,
   },
   subBar: {
     paddingHorizontal: 16,

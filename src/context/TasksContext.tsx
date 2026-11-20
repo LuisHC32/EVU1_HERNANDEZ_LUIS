@@ -8,31 +8,36 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { AppState } from 'react-native';
 
 import { isOnline, listenNetInfo, subscribeOnline } from '../services/network';
 import {
   backfill,
   cancelDelete,
   enqueue,
-  loadQueue,
   payloadEquals,
   taskPayload,
   withStorage,
   type OpInput,
 } from '../services/queue';
 import { loadTasks, saveTasks } from '../services/storage';
-import { processQueue } from '../services/sync';
+import { syncTask as syncSingleTask, verifyWithApi } from '../services/sync';
 import type { Task, TaskInput } from '../types/Task';
 
 type TasksContextValue = {
   tasks: Task[];
   offline: boolean;
   pending: number;
+  refreshing: boolean;
+  syncingIds: string[];
   addTask: (input: TaskInput, message?: string) => void;
   updateTask: (id: string, input: TaskInput) => void;
   toggleCompleted: (id: string) => void;
   removeTask: (id: string) => void;
   restoreTask: (task: Task, index: number) => void;
+  syncTask: (id: string) => Promise<void>;
+  refreshSync: () => Promise<void>;
+  verifySync: () => Promise<void>;
   feedback: string | null;
   clearFeedback: () => void;
 };
@@ -56,11 +61,33 @@ function mergeStored(snapshot: Task[], stored: Task[]): Task[] {
     if (!prev) return task;
     const next: Task = { ...task };
     if (!next.remoteId && prev.remoteId) next.remoteId = prev.remoteId;
-    if (prev.syncedAt && payloadEquals(taskPayload(next), taskPayload(prev))) {
-      next.syncedAt = next.syncedAt ?? prev.syncedAt;
+    if (prev.remoteId && prev.syncedAt && payloadEquals(taskPayload(next), taskPayload(prev))) {
+      next.syncedAt = prev.syncedAt;
     }
     return next;
   });
+}
+
+function applySyncMetadata(current: Task[], stored: Task[]): Task[] {
+  let changed = false;
+  const mapped = current.map((task) => {
+    const prev = stored.find((item) => item.id === task.id);
+    if (!prev) return task;
+    const remoteId = prev.remoteId;
+    const syncedAt =
+      prev.remoteId && prev.syncedAt && payloadEquals(taskPayload(task), taskPayload(prev))
+        ? prev.syncedAt
+        : undefined;
+    if (task.remoteId === remoteId && task.syncedAt === syncedAt) return task;
+    changed = true;
+    const next: Task = { ...task };
+    if (remoteId) next.remoteId = remoteId;
+    else delete next.remoteId;
+    if (syncedAt) next.syncedAt = syncedAt;
+    else delete next.syncedAt;
+    return next;
+  });
+  return changed ? mapped : current;
 }
 
 async function persistTasks(snapshot: Task[]): Promise<void> {
@@ -70,17 +97,16 @@ async function persistTasks(snapshot: Task[]): Promise<void> {
   });
 }
 
-async function writeTask(task: Task | null, input: OpInput): Promise<number> {
-  const queue = await withStorage(async () => {
+async function writeTask(task: Task | null, input: OpInput): Promise<void> {
+  await withStorage(async () => {
     const stored = await loadTasks();
     if (input.type === 'delete') {
       await saveTasks(stored.filter((item) => item.id !== input.taskId));
     } else if (task) {
       await saveTasks([task, ...stored.filter((item) => item.id !== task.id)]);
     }
-    return enqueue(input);
+    await enqueue(input);
   });
-  return queue.length;
 }
 
 export function TasksProvider({ children }: { children: ReactNode }) {
@@ -88,34 +114,77 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [offline, setOffline] = useState(false);
-  const [pending, setPending] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [syncingIds, setSyncingIds] = useState<string[]>([]);
   const saveChain = useRef(Promise.resolve());
+  const syncingRef = useRef(new Set<string>());
+  const pending = useMemo(
+    () => tasks.filter((task) => !task.remoteId || !task.syncedAt).length,
+    [tasks],
+  );
 
   const pullSync = useCallback((stored: Task[]) => {
-    setTasks((current) => mergeStored(current, stored));
+    setTasks((current) => applySyncMetadata(current, stored));
   }, []);
 
-  const syncNow = useCallback(() => {
-    return processQueue()
-      .then(() => withStorage(loadTasks))
-      .then((stored) => {
-        pullSync(stored);
-        return loadQueue();
-      })
-      .then((queue) => setPending(queue.length))
-      .catch(() => undefined);
+  const refreshSyncState = useCallback(async () => {
+    const stored = await withStorage(loadTasks);
+    pullSync(stored);
   }, [pullSync]);
+
+  const verifySync = useCallback(async () => {
+    try {
+      await saveChain.current.catch(() => undefined);
+      const checked = await verifyWithApi();
+      if (checked) await refreshSyncState();
+    } catch {
+      // Silencioso si no hay acceso a la API
+    }
+  }, [refreshSyncState]);
+
+  const refreshSync = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await verifySync();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [verifySync]);
+
+  const syncTask = useCallback(
+    async (id: string) => {
+      if (syncingRef.current.has(id)) return;
+      syncingRef.current.add(id);
+      setSyncingIds((current) => (current.includes(id) ? current : [...current, id]));
+      try {
+        await saveChain.current.catch(() => undefined);
+        const status = await syncSingleTask(id);
+        await refreshSyncState();
+        if (status === 'synced') setFeedback('Tarea sincronizada');
+        else if (status === 'offline') setFeedback('Sin conexión. No se pudo sincronizar.');
+        else if (status === 'dropped') setFeedback('No se pudo sincronizar: la API rechazó la tarea.');
+        else if (status === 'error') setFeedback('No se pudo conectar con el servidor.');
+      } catch {
+        setFeedback('No se pudo conectar con el servidor.');
+      } finally {
+        syncingRef.current.delete(id);
+        setSyncingIds((current) => current.filter((item) => item !== id));
+      }
+    },
+    [refreshSyncState],
+  );
 
   const push = useCallback(
     (task: Task | null, input: OpInput) => {
       void writeTask(task, input)
-        .then((count) => {
-          setPending(count);
-          if (isOnline()) return syncNow();
+        .then(() => {
+          if (input.type === 'delete' && input.remoteId && isOnline()) {
+            return syncSingleTask(input.taskId).then(() => refreshSyncState());
+          }
         })
         .catch(() => undefined);
     },
-    [syncNow],
+    [refreshSyncState],
   );
 
   useEffect(() => {
@@ -127,8 +196,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         setHydrated(true);
         await withStorage(() => backfill(loaded));
         if (cancelled) return;
-        setPending((await loadQueue()).length);
-        if (isOnline()) await syncNow();
+        if (isOnline()) await verifySync();
       })
       .catch(() => {
         if (!cancelled) setHydrated(true);
@@ -136,7 +204,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [syncNow]);
+  }, [verifySync]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -148,14 +216,18 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     const unsub = subscribeOnline((online) => {
       setOffline(!online);
-      if (online) void syncNow();
+      if (online) void verifySync();
     });
     const stop = listenNetInfo();
+    const appSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && isOnline()) void verifySync();
+    });
     return () => {
       unsub();
+      appSub.remove();
       void stop.then((fn) => fn());
     };
-  }, [hydrated, syncNow]);
+  }, [hydrated, verifySync]);
 
   const clearFeedback = useCallback(() => {
     setFeedback(null);
@@ -242,7 +314,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       });
       void withStorage(() => cancelDelete(task.id))
         .then(async (cancelled) => {
-          if (cancelled) return loadQueue();
+          if (cancelled) return;
           const fresh = { ...task };
           delete fresh.remoteId;
           delete fresh.syncedAt;
@@ -250,17 +322,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
           await withStorage(async () => {
             const stored = await loadTasks();
             await saveTasks([fresh, ...stored.filter((item) => item.id !== fresh.id)]);
-            return enqueue({ type: 'create', taskId: fresh.id, payload: taskPayload(fresh) });
+            await enqueue({ type: 'create', taskId: fresh.id, payload: taskPayload(fresh) });
           });
-          return loadQueue();
-        })
-        .then((queue) => {
-          setPending(queue.length);
-          if (isOnline()) return syncNow();
         })
         .catch(() => undefined);
     },
-    [syncNow],
+    [],
   );
 
   const value = useMemo(
@@ -268,15 +335,36 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       tasks,
       offline,
       pending,
+      refreshing,
+      syncingIds,
       addTask,
       updateTask,
       toggleCompleted,
       removeTask,
       restoreTask,
+      syncTask,
+      refreshSync,
+      verifySync,
       feedback,
       clearFeedback,
     }),
-    [tasks, offline, pending, addTask, updateTask, toggleCompleted, removeTask, restoreTask, feedback, clearFeedback],
+    [
+      tasks,
+      offline,
+      pending,
+      refreshing,
+      syncingIds,
+      addTask,
+      updateTask,
+      toggleCompleted,
+      removeTask,
+      restoreTask,
+      syncTask,
+      refreshSync,
+      verifySync,
+      feedback,
+      clearFeedback,
+    ],
   );
 
   if (!hydrated) return null;
