@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Card, Icon, IconButton, Text } from 'react-native-paper';
 
+import { SYNC_MESSAGES } from '../constants/messages';
 import { palette } from '../theme/theme';
 import type { Task } from '../types/Task';
 
@@ -182,7 +183,9 @@ export function TaskItem({ task, syncing = false, onToggle, onEdit, onDelete, on
               style={styles.iconButton}
               onPress={() => onSync(task)}
               accessibilityLabel={`Sincronizar tarea ${task.titulo}`}
-              accessibilityValue={{ text: unsynced ? 'Sin sincronizar' : 'Sincronizada' }}
+              accessibilityValue={{
+                text: unsynced ? SYNC_MESSAGES.STATUS_UNSYNCED : SYNC_MESSAGES.STATUS_SYNCED,
+              }}
             />
             <IconButton
               icon="pencil"

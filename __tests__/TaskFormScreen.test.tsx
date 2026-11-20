@@ -1,15 +1,18 @@
-import { beforeEach, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, expect, it, jest } from '@jest/globals';
+import NetInfo from '@react-native-community/netinfo';
 import { Text } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { SYNC_MESSAGES } from '../src/constants/messages';
 import { TasksProvider, useTasks } from '../src/context/TasksContext';
 import { TaskFormScreen } from '../src/screens/TaskFormScreen';
 import * as camera from '../src/services/camera';
 import * as location from '../src/services/location';
 import type { LocationCapture } from '../src/services/location';
+import { setOnline } from '../src/services/network';
 import * as storage from '../src/services/storage';
 import { theme } from '../src/theme/theme';
 import type { RootStackParamList } from '../src/types/navigation';
@@ -83,11 +86,17 @@ async function renderForm(params?: { taskId?: string }) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  setOnline(true);
   jest.mocked(storage.loadTasks).mockResolvedValue([]);
   jest.mocked(storage.saveTasks).mockResolvedValue(undefined);
   jest.mocked(camera.takePhoto).mockResolvedValue({ uris: null, reason: 'cancelled' });
   jest.mocked(camera.pickFromGallery).mockResolvedValue({ uris: null, reason: 'cancelled' });
   jest.mocked(location.getCurrentLocation).mockResolvedValue({ location: null, denied: false });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+  setOnline(true);
 });
 
 async function openNew() {
@@ -229,4 +238,30 @@ it('no pide ubicación si falta el título', async () => {
 
   expect(await screen.findByText('El título es obligatorio.')).toBeTruthy();
   expect(location.getCurrentLocation).not.toHaveBeenCalled();
+});
+
+it('al guardar o editar sin conexión indica que debe sincronizarse manualmente', async () => {
+  setOnline(false);
+  jest.spyOn(NetInfo, 'fetch').mockResolvedValue({
+    isConnected: false,
+    isInternetReachable: false,
+  } as Awaited<ReturnType<typeof NetInfo.fetch>>);
+
+  const created = await openNew();
+  await fireEvent.changeText(screen.getByLabelText('Título'), 'Tarea offline');
+  await fireEvent.press(screen.getByRole('button', { name: 'Guardar tarea' }));
+
+  await waitFor(() => {
+    expect(created.bag.feedback).toBe(SYNC_MESSAGES.OFFLINE_SAVE);
+  });
+
+  jest.mocked(storage.loadTasks).mockResolvedValue([existing]);
+  const edited = await renderForm({ taskId: existing.id });
+  await screen.findByDisplayValue('Vieja');
+  await fireEvent.changeText(screen.getByLabelText('Título'), 'Editada offline');
+  await fireEvent.press(screen.getByRole('button', { name: 'Actualizar tarea' }));
+
+  await waitFor(() => {
+    expect(edited.bag.feedback).toBe(SYNC_MESSAGES.OFFLINE_SAVE);
+  });
 });

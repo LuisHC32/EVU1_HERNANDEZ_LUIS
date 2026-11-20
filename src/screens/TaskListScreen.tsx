@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Header } from '../components/Header';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { TaskItem } from '../components/TaskItem';
+import { syncAlertDetail, syncAlertLabel } from '../constants/messages';
 import { useTasks } from '../context/TasksContext';
 import { palette } from '../theme/theme';
 import type { Task } from '../types/Task';
@@ -122,11 +123,7 @@ export function TaskListScreen({ navigation }: Props) {
     setQuery('');
   };
 
-  const syncAlertMessage = offline
-    ? pending > 0
-      ? `Sin conexión. ${pending} ${pending === 1 ? 'cambio pendiente' : 'cambios pendientes'}.`
-      : 'Sin conexión.'
-    : `${pending} ${pending === 1 ? 'cambio por sincronizar' : 'cambios por sincronizar'}`;
+  const syncAlertMessage = syncAlertDetail(offline, pending);
 
   const showSyncAlert = () => {
     setNotice({ id: Date.now(), message: syncAlertMessage, undo: null });
@@ -179,11 +176,7 @@ export function TaskListScreen({ navigation }: Props) {
                 numberOfLines={1}
                 style={[styles.syncAlertText, offline && styles.syncAlertTextOffline]}
               >
-                {offline
-                  ? pending > 0
-                    ? `Sin red · ${pending}`
-                    : 'Sin conexión'
-                  : `${pending} pendiente${pending === 1 ? '' : 's'}`}
+                {syncAlertLabel(offline, pending)}
               </Text>
             </Pressable>
           ) : null}

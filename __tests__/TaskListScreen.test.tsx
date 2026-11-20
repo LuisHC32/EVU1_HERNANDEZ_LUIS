@@ -1,14 +1,17 @@
-import { beforeEach, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, expect, it, jest } from '@jest/globals';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { Pressable, Text } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { SYNC_MESSAGES } from '../src/constants/messages';
 import { TasksProvider, useTasks } from '../src/context/TasksContext';
 import { TaskListScreen } from '../src/screens/TaskListScreen';
 import * as api from '../src/services/api';
+import { setOnline } from '../src/services/network';
 import { enqueue, taskPayload } from '../src/services/queue';
 import * as storage from '../src/services/storage';
 import { theme } from '../src/theme/theme';
@@ -87,7 +90,13 @@ async function renderList() {
 beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks();
+  setOnline(true);
   jest.mocked(api.listTaskIds).mockResolvedValue({ kind: 'ok', ids: [8] });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+  setOnline(true);
 });
 
 it('permite sincronizar manualmente una tarea pendiente y una ya sincronizada', async () => {
@@ -141,9 +150,54 @@ it('muestra aviso de error si falla la sincronización manual de una tarea', asy
   await fireEvent.press(await screen.findByRole('button', { name: 'Sincronizar tarea Pendiente' }));
 
   await waitFor(() => {
-    expect(screen.getByText('No se pudo conectar con el servidor.')).toBeTruthy();
+    expect(screen.getByText(SYNC_MESSAGES.SYNC_SERVER_ERROR)).toBeTruthy();
   });
   expect(screen.queryByTestId('sync-check-badge')).toBeNull();
+});
+
+it('muestra aviso claro al tocar sincronizar sin conexión y en la alerta superior', async () => {
+  await storage.saveTasks([pendingTask]);
+  await enqueue({ type: 'create', taskId: pendingTask.id, payload: taskPayload(pendingTask) });
+  setOnline(false);
+  jest.spyOn(NetInfo, 'fetch').mockResolvedValue({
+    isConnected: false,
+    isInternetReachable: false,
+  } as Awaited<ReturnType<typeof NetInfo.fetch>>);
+
+  await renderList();
+
+  expect(await screen.findByText('Sin red · 1')).toBeTruthy();
+  await fireEvent.press(
+    screen.getByRole('button', {
+      name: 'Sin conexión a internet. 1 cambio pendiente; sincronízalo cuando vuelva la conexión.',
+    }),
+  );
+  expect(
+    await screen.findByText(
+      'Sin conexión a internet. 1 cambio pendiente; sincronízalo cuando vuelva la conexión.',
+    ),
+  ).toBeTruthy();
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Sincronizar tarea Pendiente' }));
+
+  await waitFor(() => {
+    expect(screen.getByText(SYNC_MESSAGES.SYNC_OFFLINE)).toBeTruthy();
+  });
+  expect(api.createTask).not.toHaveBeenCalled();
+});
+
+it('mantiene el mensaje cuando la API rechaza la tarea (4xx)', async () => {
+  await storage.saveTasks([pendingTask]);
+  await enqueue({ type: 'create', taskId: pendingTask.id, payload: taskPayload(pendingTask) });
+  jest.mocked(api.createTask).mockResolvedValue({ kind: 'drop', status: 400 });
+
+  await renderList();
+
+  await fireEvent.press(await screen.findByRole('button', { name: 'Sincronizar tarea Pendiente' }));
+
+  await waitFor(() => {
+    expect(screen.getByText(SYNC_MESSAGES.SYNC_REJECTED)).toBeTruthy();
+  });
 });
 
 it('quita el check si la tarea ya no está en la API y permite volver a sincronizarla', async () => {

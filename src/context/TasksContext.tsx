@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 
+import { SYNC_MESSAGES } from '../constants/messages';
 import { isOnline, listenNetInfo, subscribeOnline } from '../services/network';
 import {
   backfill,
@@ -43,7 +44,6 @@ type TasksContextValue = {
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
-const OFFLINE_SAVE = 'Guardada en este dispositivo. Se sincronizará al volver la conexión.';
 
 function createId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -160,12 +160,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         await saveChain.current.catch(() => undefined);
         const status = await syncSingleTask(id);
         await refreshSyncState();
-        if (status === 'synced') setFeedback('Tarea sincronizada');
-        else if (status === 'offline') setFeedback('Sin conexión. No se pudo sincronizar.');
-        else if (status === 'dropped') setFeedback('No se pudo sincronizar: la API rechazó la tarea.');
-        else if (status === 'error') setFeedback('No se pudo conectar con el servidor.');
+        if (status === 'synced') setFeedback(SYNC_MESSAGES.SYNCED);
+        else if (status === 'offline') setFeedback(SYNC_MESSAGES.SYNC_OFFLINE);
+        else if (status === 'dropped') setFeedback(SYNC_MESSAGES.SYNC_REJECTED);
+        else if (status === 'error') setFeedback(SYNC_MESSAGES.SYNC_SERVER_ERROR);
       } catch {
-        setFeedback('No se pudo conectar con el servidor.');
+        setFeedback(SYNC_MESSAGES.SYNC_SERVER_ERROR);
       } finally {
         syncingRef.current.delete(id);
         setSyncingIds((current) => current.filter((item) => item !== id));
@@ -245,7 +245,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         ...(input.location ? { location: input.location } : {}),
       };
       setTasks((current) => [task, ...current]);
-      setFeedback(isOnline() ? message : OFFLINE_SAVE);
+      setFeedback(isOnline() ? message : SYNC_MESSAGES.OFFLINE_SAVE);
       push(task, { type: 'create', taskId: task.id, payload: taskPayload(task) });
     },
     [push],
@@ -268,7 +268,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
           return next;
         }),
       );
-      setFeedback('Tarea actualizada correctamente');
+      setFeedback(isOnline() ? 'Tarea actualizada correctamente' : SYNC_MESSAGES.OFFLINE_SAVE);
       if (!next) return;
       push(next, { type: 'update', taskId: id, payload: taskPayload(next), remoteId: next.remoteId });
     },
