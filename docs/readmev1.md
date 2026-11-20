@@ -142,71 +142,71 @@ npx expo start
 
 Si no hay tareas, la lista muestra el estado vacío y el botón **Crear primera tarea**. El botón flotante **+** (`FAB`) abre el formulario.
 
-![Pantalla de inicio sin tareas](../imgs/Inicio.png)
+![Pantalla de inicio sin tareas](../imgs/imgsv1/Inicio.png)
 
 ### Crear tarea
 
 El formulario pide el título (máximo 120 caracteres) y una descripción opcional. Los campos son `TextInput` con borde de React Native Paper y un contador de caracteres debajo.
 
-![Formulario de nueva tarea vacío](../imgs/Nueva%20Tarea%20Vacia.png)
+![Formulario de nueva tarea vacío](../imgs/imgsv1/Nueva%20Tarea%20Vacia.png)
 
-![Formulario de nueva tarea con datos](../imgs/Crear%20Tarea.png)
+![Formulario de nueva tarea con datos](../imgs/imgsv1/Crear%20Tarea.png)
 
 Si el título está vacío, la tarea no se guarda: el campo se marca en rojo y `HelperText` muestra **El título es obligatorio.**
 
-![Error de título obligatorio](../imgs/Crear%20Tarea%20Error.png)
+![Error de título obligatorio](../imgs/imgsv1/Crear%20Tarea%20Error.png)
 
 Al guardar, la app vuelve a la lista y el `Snackbar` muestra **Tarea guardada**. El contador indica cuántas tareas están activas.
 
-![Tarea creada](../imgs/CrearTarea%20Exitosamente.png)
+![Tarea creada](../imgs/imgsv1/CrearTarea%20Exitosamente.png)
 
 ### Lista de tareas
 
 Cada tarea es una `Card` con su título, su descripción, una casilla para marcarla como realizada y los botones de editar y eliminar.
 
-![Lista con varias tareas](../imgs/Lista%20de%20Tareas.png)
+![Lista con varias tareas](../imgs/imgsv1/Lista%20de%20Tareas.png)
 
 ### Editar tarea
 
 El ícono de lápiz abre la misma pantalla con los datos de la tarea. La cabecera dice **Editar tarea** y el botón dice **Actualizar tarea**.
 
-![Formulario de edición](../imgs/Editar%20Tarea.png)
+![Formulario de edición](../imgs/imgsv1/Editar%20Tarea.png)
 
 Al guardar, la app vuelve a la lista y aparece el aviso **Tarea actualizada correctamente**.
 
-![Tarea actualizada](../imgs/Editar%20Tarea%20Exitosamente.png)
+![Tarea actualizada](../imgs/imgsv1/Editar%20Tarea%20Exitosamente.png)
 
 ### Marcar como realizada
 
 La casilla de cada tarjeta cambia el estado. La tarea realizada aparece marcada y deja de contarse como activa, pero sigue visible en la lista.
 
-![Tarea marcada como realizada](../imgs/Tarea%20realizada.png)
+![Tarea marcada como realizada](../imgs/imgsv1/Tarea%20realizada.png)
 
 ### Buscar
 
 La lupa de la barra superior abre el buscador. Filtra por título y descripción, sin distinguir mayúsculas ni acentos, y el contador pasa a mostrar los resultados.
 
-![Buscador abierto](../imgs/Buscar%20Tarea.png)
+![Buscador abierto](../imgs/imgsv1/Buscar%20Tarea.png)
 
-![Lista filtrada](../imgs/Buscar%20Tarea%20Filtrado.png)
+![Lista filtrada](../imgs/imgsv1/Buscar%20Tarea%20Filtrado.png)
 
 Si ninguna tarea coincide, la app muestra el estado **Sin resultados**.
 
-![Búsqueda sin resultados](../imgs/Buscar%20Tarea%20Sin%20Resultados.png)
+![Búsqueda sin resultados](../imgs/imgsv1/Buscar%20Tarea%20Sin%20Resultados.png)
 
 ### Eliminar
 
 El ícono de basurero abre un `Dialog` de confirmación. **Cancelar** cierra el diálogo y **Eliminar** quita la tarea.
 
-![Confirmación para eliminar](../imgs/Eliminar%20Tarea.png)
+![Confirmación para eliminar](../imgs/imgsv1/Eliminar%20Tarea.png)
 
 Después de eliminar, el `Snackbar` muestra **Tarea eliminada** con la opción **Deshacer**.
 
-![Tarea eliminada](../imgs/Eliminar%20Tarea%20Exitosamente.png)
+![Tarea eliminada](../imgs/imgsv1/Eliminar%20Tarea%20Exitosamente.png)
 
 Si tocas **Deshacer**, la tarea vuelve a su lugar en la lista.
 
-![Tarea restaurada con Deshacer](../imgs/Deshacer%20Eliminacion.png)
+![Tarea restaurada con Deshacer](../imgs/imgsv1/Deshacer%20Eliminacion.png)
 
 ## Tecnologías
 

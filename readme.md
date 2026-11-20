@@ -2,9 +2,9 @@
 **Alumno:** Luis Hernandez.
 **Profesor:** Boris Belmar.
 **Institución:** IPSS.
-**Entrega:** parte 2 (cámara, GPS, almacenamiento local y pruebas).
+**Entrega:** lo nuevo respecto de la parte 1 (foto, GPS, permisos, persistencia y sincronización).
 
-La parte 1 ya permitía listar, crear, editar, buscar, completar y eliminar tareas con React Native Paper. Esta versión suma foto, ubicación y persistencia en el dispositivo, sin bloquear el guardado si falta un permiso.
+La parte 1 ya permitía listar, crear, editar, buscar, completar y eliminar tareas. Ese recorrido, con sus capturas, quedó en [docs/readmev1.md](docs/readmev1.md) (`imgs/imgsv1/`). Aquí documento solo lo que se suma: foto, ubicación, permisos, guardado en el dispositivo y envío a la API.
 
 | # | Requisito | Cómo quedó |
 |---|-----------|------------|
@@ -22,7 +22,7 @@ EVU1_HERNANDEZ_LUIS/
 ├── app.json          # Expo y plugins de cámara y ubicación (textos en español)
 ├── package.json      # Dependencias, script test y preset jest-expo
 ├── jest.setup.js     # Simula AsyncStorage y NetInfo
-├── assets/ · imgs/   # Íconos/splash y capturas del README
+├── assets/ · imgs/   # Íconos/splash y capturas nuevas (las de la parte 1 están en imgs/imgsv1)
 ├── __tests__/        # cámara, GPS, almacenamiento y formulario
 └── src/
     ├── components/   # TaskItem, Header, PrimaryButton, PhotoPicker
@@ -119,11 +119,9 @@ export type PhotoCapture =
 
 # To-Do List
 
-Aplicación móvil para registrar, buscar, editar y eliminar tareas. El título es obligatorio (máximo 120 caracteres). Al crearla se pueden adjuntar fotos y, si el permiso está concedido, se guarda la ubicación.
+Sobre la lista de la parte 1, cada tarea nueva puede llevar fotos y la ubicación del momento en que se guarda. Esas dos cosas son opcionales: si el permiso se niega, la tarea se guarda igual.
 
-Las tareas, las fotos y la ubicación quedan en el dispositivo con AsyncStorage y se cargan al abrir la app, también sin conexión. Negar un permiso no impide guardar.
-
-Con `EXPO_PUBLIC_API_URL` apuntando a `api/`, cada alta, edición o borrado se encola y se envía al servidor al haber red. Sin esa URL la lista sigue funcionando en local. La API guarda una sola `photo_uri`: se envía la primera foto como texto, no el archivo.
+Todo queda primero en el dispositivo. Con red, el ícono de sincronizar envía el cambio a la API y la tarjeta pasa a sincronizada. Sin red, la barra superior marca **Sin red** y el aviso explica que hay que sincronizar al volver la conexión.
 
 ## Cómo ejecutarla
 
@@ -140,81 +138,77 @@ En el celular, la cámara, la galería y el GPS hay que probarlos en un disposit
 
 Para la API, además: Postgres, `cp .env.example .env` con la IP del computador (no `localhost`), y en `api/` los scripts `npm install`, `npm run migrate` y `npm run dev`.
 
-## Pantallas
+## Lo nuevo en pantalla
 
-### Inicio
+El alta, la búsqueda, el completado y el borrado con deshacer siguen como en la parte 1. Las capturas de abajo son solo de foto, GPS, permisos y sincronización.
 
-Si no hay tareas, la lista muestra el estado vacío y el botón **Crear primera tarea**. El botón flotante **+** abre el formulario.
+### Formulario con foto y ubicación
 
-![Pantalla de inicio sin tareas](imgs/Inicio.png)
+Debajo de la descripción aparece **Imagen o comprobante (opcional)**. Sin foto dice **Agregar foto o captura**; con una, muestra la miniatura y la cruz para quitarla. **Tomar foto** y **Galería** piden el permiso en ese momento. El campo **Ubicación (opcional)** deja escribir una dirección antes de guardar.
 
-### Crear tarea
+![Nueva tarea con foto adjunta](imgs/Nueva%20Tarea.png)
 
-El formulario pide el título y una descripción opcional. Debajo está el bloque **Imagen o comprobante (opcional)**: sin fotos muestra el llamado **Agregar foto o captura**; con fotos, las miniaturas. El campo **Ubicación (opcional)** deja escribir una dirección. Al pulsar **Guardar tarea**, si el título es válido, aparece **Obteniendo ubicación…** y después la app vuelve a la lista.
+### Permiso de cámara
 
-![Formulario de nueva tarea vacío](imgs/Nueva%20Tarea%20Vacia.png)
+Al tocar **Tomar foto**, Android pregunta si Expo Go puede tomar fotos. **No permitir** no bloquea el formulario: la tarea se puede guardar sin imagen. Cancelar el capturador tampoco cambia las fotos que ya estaban.
 
-![Formulario de nueva tarea con datos](imgs/Crear%20Tarea.png)
+![Diálogo del sistema para la cámara](imgs/Solicitar%20Permiso%20de%20Camara.png)
 
-Si el título está vacío, la tarea no se guarda y tampoco se consulta el GPS. El campo se marca en rojo y `HelperText` muestra **El título es obligatorio.**
+### Permiso de ubicación
 
-![Error de título obligatorio](imgs/Crear%20Tarea%20Error.png)
+El GPS no se consulta al abrir la pantalla. Se pide al pulsar **Guardar tarea**, y solo si el título es válido. El diálogo ofrece ubicación precisa o aproximada.
 
-Al guardar con ubicación, el `Snackbar` muestra **Tarea guardada**.
+![Diálogo del sistema para la ubicación](imgs/Solicitar%20Permiso%20de%20Ubicacion.png)
 
-![Tarea creada](imgs/CrearTarea%20Exitosamente.png)
+### Mientras llega el GPS
 
-### Foto
+Con el permiso concedido, el formulario muestra **Obteniendo ubicación…** y deshabilita **Guardar tarea** para no lanzar dos lecturas. La dirección escrita, si hay una, se conserva.
 
-**Tomar foto** pide permiso de cámara y abre el capturador. **Galería** pide permiso de fotos y permite varias imágenes. Cada miniatura tiene **Quitar foto**. Si el permiso se niega, el `Snackbar` avisa y el resto del formulario sigue habilitado. Cancelar el capturador no agrega ni borra fotos.
+![Indicador mientras se obtiene la ubicación](imgs/Obteniendo%20Ubicacion.png)
 
-### Ubicación
+Cuando el geocodificado responde, el campo queda con esa dirección (aquí, Plaza de Armas, Santiago) y el botón vuelve a estar activo. Si el usuario ya había escrito un texto, ese texto reemplaza al del GPS. Si falla solo el geocodificado, igual se guardan latitud y longitud.
 
-Solo las tareas nuevas consultan el GPS, y solo después de validar el título. Si el usuario escribió una dirección, ese texto reemplaza el que devuelva el geocodificado. Al editar no se vuelve a leer el GPS: se conservan latitud y longitud, y se puede cambiar el texto de la dirección. Sin permiso o si el GPS falla, la tarea se crea sin `location` y el aviso lo dice.
+![Dirección obtenida en el formulario](imgs/Ubicacion%20Obtenida.png)
 
-### Lista de tareas
+### Permiso denegado
 
-Cada tarea es una `Card` con título, descripción, casilla de realizada y botones de editar y eliminar. Si tiene fotos, el chip dice **1 foto adjunta** o **N fotos adjuntas** y abre el visor. Si tiene ubicación, el chip `map-marker` muestra la dirección o las coordenadas.
+Si se niega la ubicación, la tarea se crea igual y el aviso dice **Tarea guardada sin ubicación: permiso denegado.** La tarjeta no lleva chip de mapa. Lo mismo aplica a la foto: se guarda sin `photoUris`.
 
-![Lista con varias tareas](imgs/Lista%20de%20Tareas.png)
+![Tarea guardada sin ubicación](imgs/Permisos%20Denegados.png)
 
-### Editar tarea
+### Tarea con foto y mapa
 
-El lápiz abre la misma pantalla con los datos, las fotos y la dirección. La cabecera dice **Editar tarea** y el botón **Actualizar tarea**. Se pueden agregar o quitar fotos. Guardar no pide ubicación de nuevo.
+Con permiso, la lista muestra lo nuevo en la tarjeta: el chip **1 foto adjunta** y el chip `map-marker` con la dirección. Arriba, **1 pendiente** indica que el cambio todavía no llegó a la API. El aviso es **Tarea guardada**.
 
-![Formulario de edición](imgs/Editar%20Tarea.png)
+![Tarea creada con foto y ubicación](imgs/Tarea%20Agregada.png)
 
-![Tarea actualizada](imgs/Editar%20Tarea%20Exitosamente.png)
+Tocar el chip de la foto abre el visor. Si hay varias, las flechas y el contador `1 / 1` recorren el arreglo.
 
-### Marcar como realizada
+![Modal para ver la foto adjunta](imgs/Ver%20Imagen%20Modal.png)
 
-La casilla cambia el estado. La tarea realizada deja de contarse como activa y sigue en la lista. El cambio también se escribe en AsyncStorage.
+### Editar
 
-![Tarea marcada como realizada](imgs/Tarea%20realizada.png)
+El lápiz abre la misma pantalla con el título, la descripción, la miniatura y la dirección. Se puede quitar la foto, tomar otra o cambiar el texto de la ubicación. **Actualizar tarea** no vuelve a leer el GPS: conserva latitud y longitud.
 
-### Buscar
+![Edición con la foto y la dirección ya cargadas](imgs/Editar%20Tarea.png)
 
-La lupa filtra por título y descripción, sin distinguir mayúsculas ni acentos.
+### Sin red
 
-![Buscador abierto](imgs/Buscar%20Tarea.png)
+Sin conexión la lista sigue usable. La píldora de la barra pasa a **Sin red · 2** y el `Snackbar` dice **Sin conexión. La tarea se guardó en este dispositivo; sincronízala cuando vuelva la conexión.** El ícono de sincronizar de cada tarjeta pendiente queda en flechas, sin el visto de enviada. Las coordenadas ya guardadas siguen en el chip.
 
-![Lista filtrada](imgs/Buscar%20Tarea%20Filtrado.png)
+![Cambios guardados en el dispositivo, sin red](imgs/Sincronizacion%20Fallida.png)
 
-![Búsqueda sin resultados](imgs/Buscar%20Tarea%20Sin%20Resultados.png)
+### Sincronizada
 
-### Eliminar
+Con red, ese mismo ícono envía la tarea. Al terminar, el aviso es **Tarea sincronizada** y el ícono muestra el visto. Si no hay dirección escrita, el chip muestra latitud y longitud. **1 pendiente** sigue contando las que aún no salieron.
 
-El basurero abre un `Dialog`. **Eliminar** quita la tarea del estado y del almacenamiento. El `Snackbar` ofrece **Deshacer**, que la reinserta en la misma posición.
+![Tareas sincronizadas y una todavía pendiente](imgs/Sincronizacion%20Exitosa.png)
 
-![Confirmación para eliminar](imgs/Eliminar%20Tarea.png)
+### En la API
 
-![Tarea eliminada](imgs/Eliminar%20Tarea%20Exitosamente.png)
+`GET /tasks` devuelve la tarea ya persistida en PostgreSQL, con `location.latitude`, `location.longitude` y `location.address`. La foto no viaja como archivo: a la API se manda solo la primera `photo_uri`, como texto.
 
-![Tarea restaurada con Deshacer](imgs/Deshacer%20Eliminacion.png)
-
-### Cerrar y volver a abrir
-
-Al salir de la app las tareas siguen en AsyncStorage (clave `tasks`), incluidas `photoUris` y `location`. Al abrir, `TasksProvider` las carga antes de aceptar ediciones, así el primer render vacío no borra lo guardado. Sin red la lista sigue disponible.
+![Respuesta de GET /tasks](imgs/API.png)
 
 ## Pruebas
 
